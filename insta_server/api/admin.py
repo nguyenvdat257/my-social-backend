@@ -29,6 +29,7 @@ class StoryAdmin(admin.ModelAdmin):
 
 
 admin.site.register(Profile)
+admin.site.register(Follow)
 admin.site.register(Post, PostAdmin)
 admin.site.register(HashTag)
 admin.site.register(PostSeen)

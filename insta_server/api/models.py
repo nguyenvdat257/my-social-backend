@@ -11,7 +11,7 @@ class Profile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200, blank=True, null=True)
-    avatar = models.ImageField(upload_to='images', null=True)
+    avatar = models.ImageField(upload_to='images', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     website = models.URLField(blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -22,7 +22,8 @@ class Profile(models.Model):
         ('C', 'Custom'),
         ('N', 'None'),
     )
-    gender = models.CharField(max_length=1, choices=GENDER_CHOICES)
+    gender = models.CharField(max_length=1, blank=True,
+                              null=True, choices=GENDER_CHOICES)
 
     def __str__(self):
         return self.user.username
@@ -87,7 +88,8 @@ class SavedPost(models.Model):
 
 class Comment(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    reply_to_comment = models.ForeignKey('self', blank=True, null=True, on_delete=models.RESTRICT)
+    reply_to_comment = models.ForeignKey(
+        'self', blank=True, null=True, on_delete=models.RESTRICT)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     body = models.TextField()
     created = models.DateTimeField(auto_now_add=True)
@@ -129,7 +131,8 @@ class Notification(models.Model):
         Profile, related_name='receiver_profile', on_delete=models.CASCADE)
     sender_profile = models.ForeignKey(
         Profile, related_name='sender_profile', on_delete=models.CASCADE, blank=True, null=True)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE, blank=True, null=True)
+    post = models.ForeignKey(
+        Post, on_delete=models.CASCADE, blank=True, null=True)
     body = models.TextField(blank=True, null=True)
     NOTI_TYPES = (
         ('like_comment', 'like_comment'),
@@ -148,9 +151,12 @@ class Notification(models.Model):
 
 class Follow(models.Model):
     follower_profile = models.ForeignKey(
-        Profile, related_name='follower_profile', on_delete=models.CASCADE)
+        Profile, related_name='follow_followers', on_delete=models.CASCADE)
     followee_profile = models.ForeignKey(
-        Profile, related_name='followee_profile', on_delete=models.CASCADE)
+        Profile, related_name='follow_followees', on_delete=models.CASCADE)
+
+    class Meta:
+        unique_together = ('follower_profile', 'followee_profile',)
 
     def __str__(self):
         return str(self.follower_profile) + " follows " + str(self.followee_profile)
@@ -197,7 +203,8 @@ class ChatRoomProfile(models.Model):
 class Chat(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     chat_room = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
-    reply_to_chat = models.ForeignKey('self', blank=True, null=True, on_delete=models.RESTRICT)
+    reply_to_chat = models.ForeignKey(
+        'self', blank=True, null=True, on_delete=models.RESTRICT)
     body = models.TextField()
     created = models.DateTimeField(auto_now_add=True)
 
@@ -211,6 +218,7 @@ class ChatSeen(models.Model):
 
     def __str__(self):
         return str(self.profile) + ' seen ' + str(self.chat)
+
 
 class ChatReaction(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
