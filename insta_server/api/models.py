@@ -1,8 +1,8 @@
-import imp
 from re import search
 from tkinter import CASCADE
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 # Create your models here.
 
@@ -24,13 +24,33 @@ class Profile(models.Model):
     )
     gender = models.CharField(max_length=1, blank=True,
                               null=True, choices=GENDER_CHOICES)
+    PROFILE_TYPES = (
+        ('PU', 'Public'),
+        ('PR', 'Private')
+    )
+    type = models.CharField(max_length=2, choices=PROFILE_TYPES, default='PU')
+    online = models.IntegerField(default=0)
+
+    def num_posts(self):
+        return self.post_set.count()
+
+    def num_followings(self):
+        return self.follow_followers.count()
+    
+    def num_followers(self):
+        return self.follow_followees.count()
+
+    def has_new_story(self):
+        stories = self.story_set.filter(
+            created__gt=timezone.now() - timezone.timedelta(days=1))
+        return stories.exists()
 
     def __str__(self):
         return self.user.username
 
 
 class HashTag(models.Model):
-    body = models.CharField(max_length=200)
+    body = models.CharField(max_length=200, unique=True)
 
     def __str__(self):
         return self.body
@@ -40,17 +60,19 @@ class Post(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     body = models.TextField(blank=True, null=True)
     video = models.FileField(blank=True, null=True, upload_to='videos')
-    code = models.CharField(max_length=11, default='')
-    POST_TYPES = (
-        ('Public', 'Public'),
-        ('Private', 'Private')
-    )
-    type = models.CharField(max_length=10, choices=POST_TYPES)
+    video_thumbnail = models.ImageField(
+        blank=True, null=True, upload_to='images')
+    code = models.CharField(max_length=11, default='', unique=True)
     hash_tags = models.ManyToManyField(HashTag)
+    likes_count = models.IntegerField(default=0)
+    comments_count = models.IntegerField(default=0)
     created = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        indexes = [models.Index(fields=['code'])]
+
     def __str__(self):
-        return self.body[:15]
+        return str(self.profile) + ' post ' + str(self.id)
 
 
 class PostSeen(models.Model):
@@ -64,13 +86,14 @@ class PostSeen(models.Model):
 class PostImage(models.Model):
     image = models.ImageField(upload_to='images')
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
+    order = models.IntegerField(default=0)
 
     def __str__(self):
         return 'post: ' + str(self.post) + ' image: ' + str(self.image.url[-15:])
 
 
 class PostLike(models.Model):
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    profile = models.ForeignKey(Profile, related_name='postlike', on_delete=models.CASCADE)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
 
     def __str__(self):
@@ -79,7 +102,7 @@ class PostLike(models.Model):
 
 class SavedPost(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    post = models.ForeignKey(Post, on_delete=models.CASCADE)
+    post = models.ForeignKey(Post, related_name='savedpost', on_delete=models.CASCADE)
     created = models.DateTimeField(auto_now=True)
 
     def __str__(self):
@@ -92,14 +115,15 @@ class Comment(models.Model):
         'self', blank=True, null=True, on_delete=models.RESTRICT)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     body = models.TextField()
+    likes_count = models.IntegerField(default=0)
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return str(self.body[:15])
+        return str(self.profile) + ' comment ' + str(self.id)
 
 
 class CommentLike(models.Model):
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    profile = models.ForeignKey(Profile, related_name='comment_like', on_delete=models.CASCADE)
     comment = models.ForeignKey(Comment, on_delete=models.CASCADE)
 
     def __str__(self):
@@ -121,11 +145,6 @@ class RecentSearch(models.Model):
         else:
             return str(self.current_profile) + ' search ' + str(self.search_hashtag)[:15]
 
-# class HashTagPost(models.Model):
-#     post = models.ForeignKey(Post, on_delete=CASCADE)
-#     hashtag = models.ForeignKey(HashTag, on_delete=CASCADE)
-
-
 class Notification(models.Model):
     receiver_profile = models.ForeignKey(
         Profile, related_name='receiver_profile', on_delete=models.CASCADE)
@@ -133,10 +152,12 @@ class Notification(models.Model):
         Profile, related_name='sender_profile', on_delete=models.CASCADE, blank=True, null=True)
     post = models.ForeignKey(
         Post, on_delete=models.CASCADE, blank=True, null=True)
+    comment = models.ForeignKey(
+        Comment, on_delete=models.CASCADE, blank=True, null=True)
     body = models.TextField(blank=True, null=True)
     NOTI_TYPES = (
         ('like_comment', 'like_comment'),
-        ('mention_comment', 'mention_commnent'),
+        ('mention_comment', 'mention_comment'),
         ('following', 'following'),
         ('like_post', 'like_post'),
         ('comment_post', 'comment_post')
@@ -146,31 +167,47 @@ class Notification(models.Model):
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.body[:15]
+        return str(self.sender_profile) + ' ' + str(self.type) + ' ' + str(self.receiver_profile)
 
 
 class Follow(models.Model):
-    follower_profile = models.ForeignKey(
-        Profile, related_name='follow_followers', on_delete=models.CASCADE)
-    followee_profile = models.ForeignKey(
-        Profile, related_name='follow_followees', on_delete=models.CASCADE)
+    follower = models.ForeignKey(
+        Profile, related_name='follower', on_delete=models.CASCADE)
+    following = models.ForeignKey(
+        Profile, related_name='following', on_delete=models.CASCADE)
 
     class Meta:
-        unique_together = ('follower_profile', 'followee_profile',)
+        unique_together = ('follower', 'following',)
 
     def __str__(self):
-        return str(self.follower_profile) + " follows " + str(self.followee_profile)
+        return str(self.follower) + " follows " + str(self.following)
 
+# class FollowHashTag(models.Model):
+#     follower = models.ForeignKey(
+#         Profile, related_name='follower', on_delete=models.CASCADE)
+#     hashtag = models.ForeignKey(HashTag, related_name='hashtag', on_delete=models.CASCADE)
+
+#     class Meta:
+#         unique_together = ('follower', 'hashtag',)
+
+#     def __str__(self):
+#         return str(self.follower) + " follows " + str(self.hashtag)
 
 class Story(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     body = models.TextField(blank=True, null=True)
     video = models.FileField(upload_to="videos", blank=True, null=True)
     music = models.FileField(upload_to="music", blank=True, null=True)
+    view_profiles = models.ManyToManyField(Profile, related_name='view_profile', through='StoryView')
+    like_profiles = models.ManyToManyField(Profile, related_name='like_profile', through='StoryLike')
     created = models.DateTimeField(auto_now_add=True)
 
+    def hour_ago(self):
+        delta = timezone.now() - self.created
+        return delta.seconds // 3600
+
     def __str__(self):
-        return str(self.body[:15])
+        return str(self.profile) + ' story ' + str(self.id)
 
 
 class StoryImage(models.Model):
@@ -180,6 +217,19 @@ class StoryImage(models.Model):
     def __str__(self):
         return 'Image of: ' + str(self.story)
 
+class StoryLike(models.Model):
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    story = models.ForeignKey(Story, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.profile) + ' likes ' + str(self.story.id)
+
+class StoryView(models.Model):
+    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
+    story = models.ForeignKey(Story, on_delete=models.CASCADE)
+
+    def __str__(self):
+        return str(self.profile) + ' views ' + str(self.story.id)
 
 class ChatRoom(models.Model):
     profiles = models.ManyToManyField(Profile, through='ChatRoomProfile')
