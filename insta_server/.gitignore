@@ -1,3 +1,4 @@
 media
 *.pyc
 *sqlite3
+api/migrations

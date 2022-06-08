@@ -1,14 +1,7 @@
-from django.shortcuts import get_object_or_404
-from rest_framework.response import Response
-from rest_framework.decorators import api_view
-from ..models import Profile, Post, Follow
-from django.contrib.auth.models import User
-from ..serializers import ProfileSerializer
-from django.db.models import Q
-
+from .my_imports import *
 
 @api_view(['PUT'])
-def updateProfile(request):
+def update_profile(request):
     current_user = request.user
     data = request.data
     profile = Profile.objects.get(user__username=current_user.username)
@@ -19,28 +12,19 @@ def updateProfile(request):
         serializer.save()
         return Response({'message': 'Profile was updated!', 'data': serializer.data})
     else:
-        return Response('Error on update profile')
+        return Response('Error on update profile', status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
-def getProfile(request, username):  # get profile of username
-    user = get_object_or_404(User, username=username)
-    num_post = Post.objects.filter(profile__user__username=username).count()
-    num_following = Follow.objects.filter(
-        follower_profile__user__username=username).count()
-    num_follower = Follow.objects.filter(
-        followee_profile__user__username=username).count()
-    response_data = {'num_post': num_post,
-                     'num_following': num_following, 'num_follower': num_follower}
-    profile = Profile.objects.get(user__username=username)
-    fields = ('username', 'name', 'bio', 'avatar')
+def get_profile(request, username):  # get profile of username
+    profile = get_object_or_404(Profile, user__username=username)
+    fields = ('username', 'name', 'bio', 'avatar', 'num_posts', 'num_followings', 'num_followers')
     serializer = ProfileSerializer(profile, fields=fields)
-    response_data.update(serializer.data)
-    return Response(response_data)
+    return Response(serializer.data)
 
 
 @api_view(['GET'])
-def getSuggestProfile(request):  # get suggested profile for current user
+def get_suggest_profile(request):  # get suggested profile for current user
     current_user = request.user
     followees = [
         follow.followee_profile for follow in current_user.profile.follow_followers.all()]
@@ -60,7 +44,7 @@ def getSuggestProfile(request):  # get suggested profile for current user
 
 
 @api_view(['GET'])
-def getSearchProfile(request, keyword):
+def get_search_profile(request, keyword):
     if request.user.is_authenticated:
         username = request.user.username
         profiles = Profile.objects.filter(~Q(user__username=username) & (Q(user__username__contains=keyword) | Q(name__contains=keyword)))[:20]
