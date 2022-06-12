@@ -12,6 +12,7 @@ def create_comment(request):
     if serializer.is_valid():
         serializer.save()
         return Response(serializer.data)
+    return Response('Cannot create comment', status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
@@ -33,7 +34,7 @@ def get_comments(request, post_code): # 'comments/<str:post_code>'
     return paginator.get_paginated_response(serializer.data)
 
 
-@api_view(['POST'])
+@api_view(['PUT'])
 @permission_classes([IsAuthenticated])
 def like_unlike_comment(request):
     comment = get_object_or_404(Comment, pk=request.data['id'])

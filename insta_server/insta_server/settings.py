@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-k1i-ira-#@-+j(b-p76_&wv+gjt7f38tl5f3nl!keuj4*254+!
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
 
 
 # Application definition
@@ -43,8 +43,8 @@ INSTALLED_APPS = [
     'storages',
     'rest_framework',
     'rest_framework_simplejwt.token_blacklist',
+    'rest_framework.authtoken',
     "corsheaders",
-
 ]
 
 ASGI_APPLICATION = 'insta_server.asgi.application'
@@ -179,6 +179,7 @@ STATIC_URL = 'static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
 MEDIA_URL = 'media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+TEST_ROOT = os.path.join(BASE_DIR, 'tests')
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.0/ref/settings/#default-auto-field
@@ -196,13 +197,16 @@ AWS_DEFAULT_ACL = None
 
 CORS_ALLOW_ALL_ORIGINS = True
 
-POST_USER_PAGE_SIZE = 1 
-POST_TAG_PAGE_SIZE = 1
+POST_USER_PAGE_SIZE = 10 
+POST_TAG_PAGE_SIZE = 10
 POST_SUGGEST_PAGE_SIZE = 10
 POST_LIKE_PROFILE_PAGE_SIZE = 15
 POST_SAVED_PAGE_SIZE = 15
 
 STORY_ACTIVITY_PAGE_SIZE = 10
+STORY_VALID_DAY = 1
 
 COMMENT_PAGE_SIZE = 10
 COMMENT_LIKE_PAGE_SIZE = 10
+
+FOLLOW_FOLLOWER_SIZE = 10
