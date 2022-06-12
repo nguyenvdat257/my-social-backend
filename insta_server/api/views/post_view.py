@@ -69,7 +69,7 @@ def get_posts_current_user(request): # 'posts/current-user/'
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
-def create_post(request):
+def create_post(request): # 'posts/'
     profile = request.user.profile
     if isinstance(request.data, QueryDict):  # optional
         request.data._mutable = True
@@ -83,7 +83,7 @@ def create_post(request):
 
 
 @api_view(['GET'])
-def get_posts_by_tag_popular(request, tag): # 'posts/by-tag-popular/<str:tag>'
+def get_posts_by_tag_popular(request, tag): # 'posts/tag-popular/<str:tag>'
     if request.user.is_authenticated:
         # get posts from public account or if current account follows that account
         profile = request.user.profile
@@ -97,7 +97,7 @@ def get_posts_by_tag_popular(request, tag): # 'posts/by-tag-popular/<str:tag>'
 
 
 @api_view(['GET'])
-def get_posts_by_tag_recent(request, tag): # 'posts/by-tag-recent/<str:tag>/'
+def get_posts_by_tag_recent(request, tag): # 'posts/tag-recent/<str:tag>/'
     paginator = pagination.CursorPagination()
     paginator.page_size = settings.POST_TAG_PAGE_SIZE
     if request.user.is_authenticated:
@@ -174,10 +174,8 @@ def save_unsave_post(request): # 'posts/save-unsave/'
         post_save.delete()
         return Response(data={'type': 'unsave'})
     else:
-        if post.profile == request.user.profile:
-            SavedPost.objects.create(profile=request.user.profile, post=post)
-            return Response(data={'type': 'save'})
-    return Response('Cannot save post', status.HTTP_400_BAD_REQUEST)
+        SavedPost.objects.create(profile=request.user.profile, post=post)
+        return Response(data={'type': 'save'})
 
 
 @api_view(['GET'])

@@ -10,7 +10,7 @@ from django.core.files.base import ContentFile
 import re
 import cv2
 import os
-
+from django.conf import settings
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
     """
@@ -120,7 +120,7 @@ class PostLightSerializer(ModelSerializer):
 
     class Meta:
         model = Post
-        fields = ['images', 'likes_count', 'comments_count', 'code']
+        fields = ['images', 'likes_count', 'comments_count', 'code', 'id']
 
 
 class PostSerializer(DynamicFieldsModelSerializer):
@@ -162,9 +162,9 @@ class PostSerializer(DynamicFieldsModelSerializer):
         # add video thumbnail
         if validated_data.get('video'):
             fs = FileSystemStorage()
-            filename = fs.save('videos/temp.mp4', validated_data['video'])
-            uploaded_file_url = fs.url(filename)
-            video_path = 'insta_server' + uploaded_file_url
+            video_path = os.path.join(settings.MEDIA_ROOT, 'videos')
+            video_path = os.path.join(video_path, 'temp_' + get_random_string(10))
+            fs.save(video_path, validated_data['video'])
             vidcap = cv2.VideoCapture(video_path)
             success, image = vidcap.read()
             if success:
@@ -173,7 +173,6 @@ class PostSerializer(DynamicFieldsModelSerializer):
                     name='video_thumbnail.jpg', content=ContentFile(buf.tobytes()))
                 vidcap.release()
                 os.remove(video_path)
-
         return new_post
 
     def update(self, post, validated_data):
@@ -186,6 +185,7 @@ class PostSerializer(DynamicFieldsModelSerializer):
         if hashtag_serializer.is_valid():
             hashtag_serializer.save()
         post.body = validated_data['body']
+        post.save()
         return post
 
 

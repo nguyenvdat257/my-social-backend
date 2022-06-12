@@ -7,7 +7,7 @@ def create_get_story(request):
     if request.method == 'POST':
         profile = request.user.profile
         data = {'profile': profile.id,
-                'body': request.data['body'], 'video': request.data.get('video')}
+                'body': request.data['body'], 'video': request.data.get('video'), 'music': request.data.get('music')}
         serializer = StorySerializer(data=data, partial=True, context={
                                      'images': request.data.getlist('images')})
         if serializer.is_valid():
@@ -17,7 +17,7 @@ def create_get_story(request):
     if request.method == 'GET':
         profile = request.user.profile
         following_stories = Story.objects.filter(profile__following__follower=profile).filter(
-            created__gt=timezone.now() - timezone.timedelta(days=10)).order_by('-created')
+            created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).order_by('-created')
         self_stories = StorySerializer(profile.story_set.all(), many=True).data
         following_stories = StorySerializer(following_stories, many=True).data
         response_data = {}
@@ -44,6 +44,8 @@ def delete_story(request, pk):
 @permission_classes([IsAuthenticated])
 def like_unlike_story(request):
     story = get_object_or_404(Story, pk=request.data['id'])
+    if story.profile == request.user.profile:
+        return Response('Cannot like story', status = status.HTTP_400_BAD_REQUEST)
     story_like = StoryLike.objects.filter(
         profile=request.user.profile, story=story)
     if story_like:
@@ -62,20 +64,20 @@ def like_unlike_story(request):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-def view_story(request):
+def view_story(request): # a user views a story
     story = get_object_or_404(Story, pk=request.data['id'])
     story_view = StoryView.objects.filter(
         profile=request.user.profile, story=story)
-    if not story_view:
-        StoryView.objects.create(profile=request.user.profile, story=story)
-        return Response('Successfully view story')
-    else:
-        return Response('Successfully view story')
+    if not story_view : # a different user who has not viewed
+        if not request.user.profile == story.profile:
+            StoryView.objects.create(profile=request.user.profile, story=story)
+            return Response('Successfully view story')
+    return Response('Cannot view story', status = status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_story_activity(request, pk): # 'stories/<int:pk>/activity'
+def get_story_activity(request, pk): # 'stories/<int:pk>/activity/'
     story = get_object_or_404(Story, pk=pk)
     paginator = pagination.CursorPagination()
     paginator.page_size = settings.STORY_ACTIVITY_PAGE_SIZE
@@ -86,10 +88,10 @@ def get_story_activity(request, pk): # 'stories/<int:pk>/activity'
         response_data = []
         result_set = paginator.paginate_queryset(view_profiles, request)
         serializer = ProfileLightSerializer(result_set, many=True)
-        for profile, profile_data in zip(view_profiles, serializer.data):
+        for profile, profile_info in zip(view_profiles, serializer.data):
             is_like = profile in like_profiles
             response_data.append(
-                {'profile_data': profile_data, 'like': is_like})
+                {'profile_info': profile_info, 'like': is_like})
         return paginator.get_paginated_response(response_data)
     else:
         return Response('Cannot get story activity', status=status.HTTP_400_BAD_REQUEST)
