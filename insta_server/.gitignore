@@ -2,4 +2,4 @@ media
 *.pyc
 *sqlite3
 api/migrations
-tests
+/tests
