@@ -40,4 +40,8 @@ urlpatterns = [
     path('signup/', views.user_signup, name='signup'),
     path('notification/', views.get_notification, name='get-notification'),
     path('notification/seen/', views.seen_notification, name='seen-notification'),
-]
+    path('chatroom/', views.get_create_chat_room, name='get-create-chat-room'),
+    path('chatroom/<int:pk>/', views.update_chat_room, name='create-chat-room'),
+    path('chatroom/<int:pk>/promote-demote-admin/', views.promote_demote_admin, name='promote-demote-admin'),
+    path('chatroom/<int:pk>/chat/', views.get_chat_list, name='get-chat-list'),
+] 

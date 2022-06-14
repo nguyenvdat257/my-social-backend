@@ -13,7 +13,7 @@ from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 import api.routing
-from .channelsmiddleware import JwtAuthMiddlewareStack
+from .middlewares.channelsmiddleware import JwtAuthMiddlewareStack
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'insta_server.settings')
 
