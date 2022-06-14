@@ -5,6 +5,7 @@ from asgiref.sync import async_to_sync
 from django.db.models import signals
 from django.dispatch import receiver
 import channels.layers
+from django.utils import timezone
 
 from ..models import Notification, Profile
 from django.db.models import F
@@ -58,6 +59,8 @@ class UserConsumer(WebsocketConsumer):
                         'username': self.username
                     }
                 )
+            profile.last_active = timezone.now()
+            profile.save()
         async_to_sync(self.channel_layer.group_discard)(
             self.group_name,
             self.channel_name
