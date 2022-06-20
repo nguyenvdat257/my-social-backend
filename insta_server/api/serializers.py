@@ -242,8 +242,16 @@ class NotificationSerializer(ModelSerializer):
         fields = '__all__'
 
 
+class ProfileChatSerializer(ModelSerializer):
+    username = serializers.CharField(read_only=True, source='user.username')
+
+    class Meta:
+        model = Profile
+        fields = ['name', 'username', 'avatar']
+
+
 class ChatRoomSerializer(ModelSerializer):
-    profiles = ProfileLightSerializer(many=True)
+    profiles = ProfileChatSerializer(many=True)
     chatroom_name = serializers.SerializerMethodField()
     is_mute = serializers.SerializerMethodField()
     is_online = serializers.SerializerMethodField()
@@ -251,7 +259,7 @@ class ChatRoomSerializer(ModelSerializer):
     last_message = serializers.SerializerMethodField()
     is_have_new_chat = serializers.SerializerMethodField()
 
-    def get_chatroom_profile(self, chatroom):
+    def get_chatroom_detail(self, chatroom):
         try:
             chatroom_profile = ChatRoomProfile.objects.get(
                 chatroom=chatroom, profile=self.context['current_profile'])
@@ -260,22 +268,23 @@ class ChatRoomSerializer(ModelSerializer):
             return None
 
     def get_chatroom_name(self, chatroom):
-        chatroom_profile = self.get_chatroom_profile(chatroom)
-        if chatroom_profile:
-            return chatroom_profile.name
+        chatroom_detail = self.get_chatroom_detail(chatroom)
+        if chatroom_detail:
+            return chatroom_detail.name
         return None
 
     def get_is_mute(self, chatroom):
-        chatroom_profile = self.get_chatroom_profile(chatroom)
-        if chatroom_profile:
-            return chatroom_profile.is_mute
+        chatroom_detail = self.get_chatroom_detail(chatroom)
+        if chatroom_detail:
+            return chatroom_detail.is_mute
         return None
 
     def get_is_online(self, chatroom):
         profiles = chatroom.profiles.all()
-        online_profile = [profile for profile in profiles if profile.online > 0]
+        online_profile = [
+            profile for profile in profiles if profile.online > 0]
         return len(online_profile) > 0
-    
+
     def get_last_active(self, chatroom):
         profiles = chatroom.profiles.all()
         if len(profiles) == 2:
@@ -290,13 +299,12 @@ class ChatRoomSerializer(ModelSerializer):
             return None
 
     def get_is_have_new_chat(self, chatroom):
-        chatroom_profile = self.get_chatroom_profile(chatroom)
-        if chatroom_profile:
+        chatroom_detail = self.get_chatroom_detail(chatroom)
+        if chatroom_detail:
             last_chat = chatroom.chat_set.last()
-            return last_chat != chatroom_profile.last_read_chat
+            return last_chat != chatroom_detail.last_seen
         else:
             return False
-
 
     class Meta:
         model = ChatRoom
@@ -308,7 +316,7 @@ class ChatRoomSerializer(ModelSerializer):
             chatroom_profile = ChatRoomProfile.objects.create(
                 chatroom=new_chatroom, profile=profile)
             if profile == self.context['current_profile']:
-                chatroom_profile.is_admin=True
+                chatroom_profile.is_admin = True
                 chatroom_profile.save()
         return new_chatroom
 
@@ -324,14 +332,35 @@ class ChatRoomSerializer(ModelSerializer):
         if 'added_profiles' in self.context:
             for profile in self.context['added_profiles']:
                 if profile not in existing_profiles:
-                    chatroom.profiles.add(profile)
+                    ChatRoomProfile.objects.create(chatroom=chatroom, profile=profile)
         if 'removed_profiles' in self.context:
             for profile in self.context['removed_profiles']:
-                chatroom.profiles.remove(profile)
+                ChatRoomProfile.objects.filter(chatroom=chatroom, profile=profile).delete()
         return chatroom
 
+
 class ChatSerializer(ModelSerializer):
-    profile = ProfileLightSerializer(read_only=True)
+    profile = ProfileChatSerializer(read_only=True)
+    reaction_count = serializers.IntegerField(
+        read_only=True, source='chatreaction_set.count')
+    reaction_types = serializers.SerializerMethodField()
+    seen_profiles = serializers.SerializerMethodField()
+
+    def get_reaction_types(self, chat):
+        types = set([reaction.type for reaction in chat.chatreaction_set.all()])
+        if len(types) > 0:
+            return list(types)
+        return None
+
+    def get_seen_profiles(self, chat):
+        chatroom = chat.chatroom
+        # filter profile who have last seen chat in this chat room equals to this chat
+        profiles = Profile.objects.filter(
+            chatroomprofile__chatroom=chatroom, chatroomprofile__last_seen=chat)
+        if len(profiles) > 0:
+            serializer = ProfileChatSerializer(profiles, many=True)
+            return serializer.data
+        return None
 
     class Meta:
         model = Chat

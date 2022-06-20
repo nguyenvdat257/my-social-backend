@@ -79,3 +79,18 @@ def get_chat_list(request, pk):
         serializer = ChatSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
     return Response('Cannot get chat list', status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_reaction_list(request, pk):
+    chat = get_object_or_404(Chat, pk=pk)
+    if request.user.profile in chat.chatroom.profiles.all():
+        reaction_profiles = Profile.objects.filter(chatreaction__reply_to=chat)
+        paginator = pagination.CursorPagination()
+        paginator.page_size = settings.CHAT_LIST_SIZE
+        paginator.ordering = 'name'
+        result_page = paginator.paginate_queryset(reaction_profiles, request)
+        serializer = ProfileChatSerializer(result_page, many=True)
+        return paginator.get_paginated_response(serializer.data)
+    return Response('Cannot get chat reaction list', status=status.HTTP_400_BAD_REQUEST)

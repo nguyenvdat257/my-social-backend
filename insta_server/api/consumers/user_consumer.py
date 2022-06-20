@@ -7,7 +7,7 @@ from django.dispatch import receiver
 import channels.layers
 from django.utils import timezone
 
-from ..models import Notification, Profile
+from ..models import ChatRoomProfile, Notification, Profile, Post
 from django.db.models import F
 
 
@@ -93,6 +93,56 @@ class UserConsumer(WebsocketConsumer):
         })
 
     def noti_alarm(self, event):
+        type = event['type']
+
+        self.send(text_data=json.dumps({
+            'type': type
+        }))
+
+    @staticmethod
+    @receiver(signals.post_save, sender=Notification)
+    def noti_created_observer(sender, instance, **kwargs):
+        layer = channels.layers.get_channel_layer()
+        async_to_sync(layer.group_send)('user_%s' % instance.receiver_profile.user.username, {
+            'type': 'noti_alarm',
+        })
+
+    def noti_alarm(self, event):
+        type = event['type']
+
+        self.send(text_data=json.dumps({
+            'type': type
+        }))
+        
+    @staticmethod
+    @receiver(signals.post_save, sender=Post)
+    def post_created_observer(sender, instance, created, **kwargs):
+        if created:
+            followers = Profile.objects.filter(follower__following=instance.profile)
+            layer = channels.layers.get_channel_layer()
+            for follower in followers:
+                async_to_sync(layer.group_send)('user_%s' % follower.user.username, {
+                    'type': 'new_post',
+                })
+
+    def new_post(self, event):
+        type = event['type']
+
+        self.send(text_data=json.dumps({
+            'type': type
+        }))
+
+    @staticmethod
+    @receiver(signals.post_save, sender=ChatRoomProfile)
+    def added2chatroom_observer(sender, instance, created, **kwargs):
+        if created:
+            username = instance.profile.user.username
+            layer = channels.layers.get_channel_layer()
+            async_to_sync(layer.group_send)('user_%s' % username, {
+                'type': 'added2chatroom',
+            })
+
+    def added2chatroom(self, event):
         type = event['type']
 
         self.send(text_data=json.dumps({

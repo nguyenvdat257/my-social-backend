@@ -190,18 +190,18 @@ class ChatTestCase(MyTestCase):
         self.profile_2.last_active = timezone.now()
         self.profile_2.save()
         # change name room 1
-        chatroom_profile1 = ChatRoomProfile.objects.get(
+        chatroom_detail1 = ChatRoomProfile.objects.get(
             chatroom=chatroom1, profile=self.profile_1)
-        chatroom_profile1.name = 'Chat room 1'
+        chatroom_detail1.name = 'Chat room 1'
         # mute room 2
-        chatroom_profile2 = ChatRoomProfile.objects.get(
+        chatroom_detail2 = ChatRoomProfile.objects.get(
             chatroom=chatroom2, profile=self.profile_1)
-        chatroom_profile2.is_mute = True
+        chatroom_detail2.is_mute = True
         # add chat read
-        chatroom_profile1.last_read_chat = chat_2
-        chatroom_profile2.last_read_chat = chat_3
-        chatroom_profile1.save()
-        chatroom_profile2.save()
+        chatroom_detail1.last_seen = chat_2
+        chatroom_detail2.last_seen = chat_3
+        chatroom_detail1.save()
+        chatroom_detail2.save()
 
         resp = self.client.get('/chatroom/')
         data = resp.json()
@@ -229,23 +229,90 @@ class ChatTestCase(MyTestCase):
         chatroom = ChatRoom.objects.create()
         chatroom.profiles.add(self.profile_1)
         chatroom.profiles.add(self.profile_2)
+        chatroom.profiles.add(self.profile_3)
         chat_1 = Chat.objects.create(
             profile=self.profile_1, chatroom=chatroom, body='chat 1')
-        time.sleep(0.05) 
+        time.sleep(0.05)
         chat_2 = Chat.objects.create(
-            profile=self.profile_2, chatroom=chatroom, body='chat 2', reply_to_chat=chat_1)
-        time.sleep(0.05) 
+            profile=self.profile_2, chatroom=chatroom, body='chat 2', reply_to=chat_1)
+        time.sleep(0.05)
         chat_3 = Chat.objects.create(
             profile=self.profile_2, chatroom=chatroom, body='chat 3')
+        ChatReaction.objects.create(
+            profile=self.profile_2, reply_to=chat_1, type='like')
+        ChatReaction.objects.create(
+            profile=self.profile_3, reply_to=chat_1, type='laugh')
+        chatroom_detail1 = ChatRoomProfile.objects.get(
+            chatroom=chatroom, profile=self.profile_1)
+        chatroom_detail2 = ChatRoomProfile.objects.get(
+            chatroom=chatroom, profile=self.profile_2)
+        chatroom_detail3 = ChatRoomProfile.objects.get(
+            chatroom=chatroom, profile=self.profile_3)
+        chatroom_detail2.last_seen = chat_1
+        chatroom_detail2.save()
+        chatroom_detail3.last_seen = chat_1
+        chatroom_detail3.save()
+        chatroom_detail1.last_seen = chat_3
+        chatroom_detail1.save()
+
         resp = self.client.get('/chatroom/%s/chat/' % chatroom.id)
         data = resp.json()['results']
-        print(data[0]['created'])
-        print(data[1]['created'])
-        print(data[2]['created'])
+        # user 1 seen chat 2
         self.assertEqual(data[0]['profile']['username'], 'test_user2')
         self.assertEqual(data[0]['body'], chat_3.body)
+        self.assertEqual(data[0]['reaction_count'], 0)
+        self.assertEqual(data[0]['reaction_types'], None)
+        self.assertEqual(len(data[0]['seen_profiles']), 1)
+        self.assertEqual(data[0]['seen_profiles'][0]['username'], 'test_user1')
+
         self.assertEqual(data[1]['profile']['username'], 'test_user2')
         self.assertEqual(data[1]['body'], chat_2.body)
-        self.assertEqual(data[1]['reply_to_chat'], chat_1.id)
+        self.assertEqual(data[1]['reply_to'], chat_1.id)
+        self.assertEqual(data[1]['reaction_count'], 0)
+        self.assertEqual(data[1]['reaction_types'], None)
+        self.assertEqual(data[1]['seen_profiles'], None)
+
+        # user 2 and 3 seen chat 1, user 2 and 3 react to chat 1
         self.assertEqual(data[2]['profile']['username'], 'test_user1')
         self.assertEqual(data[2]['body'], chat_1.body)
+        self.assertEqual(data[2]['reaction_count'], 2)
+        self.assertEqual(set(data[2]['reaction_types']),
+                         set(['like', 'laugh']))
+        self.assertEqual(len(data[2]['seen_profiles']), 2)
+        self.assertEqual(set([data[2]['seen_profiles'][0]['username'], data[2]
+                         ['seen_profiles'][1]['username']]), set(['test_user2', 'test_user3']))
+
+    def test_chat_get_reaction_list(self):
+        chatroom = ChatRoom.objects.create()
+        chatroom.profiles.add(self.profile_1)
+        chatroom.profiles.add(self.profile_2)
+        chatroom.profiles.add(self.profile_3)
+        chat_1 = Chat.objects.create(
+            profile=self.profile_1, chatroom=chatroom, body='chat 1')
+        time.sleep(0.05)
+        chat_2 = Chat.objects.create(
+            profile=self.profile_2, chatroom=chatroom, body='chat 2', reply_to=chat_1)
+        time.sleep(0.05)
+        chat_3 = Chat.objects.create(
+            profile=self.profile_2, chatroom=chatroom, body='chat 3')
+        ChatReaction.objects.create(
+            profile=self.profile_2, reply_to=chat_1, type='like')
+        ChatReaction.objects.create(
+            profile=self.profile_3, reply_to=chat_1, type='laugh')
+
+        resp = self.client.get('/chat/%s/reaction/' % chat_1.id)
+        data = resp.json()['results']
+        # user 2 and 3 react to chat 1
+        self.assertEqual(len(data), 2)
+        self.assertEqual(set([data[0]['username'], data[1]['username']]), set(
+            ['test_user2', 'test_user3']))
+        self.assertEqual(len(data[0]), 3)
+        self.assertTrue(
+            'name' in data[0] and 'avatar' in data[0] and 'username' in data[0])
+        self.assertEqual(len(data[1]), 3)
+        self.assertTrue(
+            'name' in data[1] and 'avatar' in data[1] and 'username' in data[1])
+
+        resp = self.client.get('/chat/%s/reaction/' % chat_2.id)
+        data = resp.json()['results']
+        self.assertEqual(len(data), 0)

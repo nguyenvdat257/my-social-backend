@@ -114,7 +114,7 @@ class SavedPost(models.Model):
 
 class Comment(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    reply_to_comment = models.ForeignKey(
+    reply_to = models.ForeignKey(
         'self', blank=True, null=True, on_delete=models.RESTRICT)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     body = models.TextField()
@@ -253,7 +253,7 @@ class ChatRoom(models.Model):
 class Chat(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     chatroom = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
-    reply_to_chat = models.ForeignKey(
+    reply_to = models.ForeignKey(
         'self', blank=True, null=True, on_delete=models.RESTRICT)
     body = models.TextField()
     created = models.DateTimeField(auto_now_add=True)
@@ -265,7 +265,7 @@ class Chat(models.Model):
 class ChatRoomProfile(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     chatroom = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
-    last_read_chat = models.ForeignKey(Chat, blank=True, null=True, on_delete=models.RESTRICT)
+    last_seen = models.ForeignKey(Chat, blank=True, null=True, on_delete=models.RESTRICT)
     name = models.CharField(max_length=200, blank=True, null=True)
     is_mute = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)
@@ -284,7 +284,7 @@ class ChatSeen(models.Model):
 
 class ChatReaction(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    chat = models.ForeignKey(Chat, on_delete=models.CASCADE)
+    reply_to = models.ForeignKey(Chat, on_delete=models.CASCADE)
     type = models.CharField(max_length=100)
 
     def __str__(self):

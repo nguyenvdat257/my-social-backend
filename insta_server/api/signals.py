@@ -24,7 +24,7 @@ def create_comment_notification(sender, instance, created, **kwargs):
                                         type="mention_comment")
         post_profile = instance.post.profile
         # if the comment is not reply comment then notify post author
-        if post_profile != comment_profile and not instance.reply_to_comment:
+        if post_profile != comment_profile and not instance.reply_to:
             if post_profile.user.username not in mentioned_usernames:
                 Notification.objects.create(receiver_profile=post_profile,
                                             sender_profile=comment_profile,
