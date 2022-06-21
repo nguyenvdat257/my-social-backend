@@ -3,6 +3,7 @@ from tkinter import CASCADE
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+from versatileimagefield.fields import VersatileImageField, PPOIField
 
 # Create your models here.
 
@@ -11,7 +12,7 @@ class Profile(models.Model):
     user = models.OneToOneField(
         User, on_delete=models.CASCADE, null=True, blank=True)
     name = models.CharField(max_length=200, blank=True, null=True)
-    avatar = models.ImageField(upload_to='images', blank=True, null=True)
+    avatar = VersatileImageField(upload_to='images', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     website = models.URLField(blank=True, null=True)
     email = models.EmailField(blank=True, null=True)
@@ -31,20 +32,7 @@ class Profile(models.Model):
     type = models.CharField(max_length=2, choices=PROFILE_TYPES, default='PU')
     online = models.IntegerField(default=0)
     last_active = models.DateTimeField(null=True, blank=True)
-
-    def num_posts(self):
-        return self.post_set.count()
-
-    def num_followings(self):
-        return self.follow_followers.count()
-
-    def num_followers(self):
-        return self.follow_followees.count()
-
-    def has_new_story(self):
-        stories = self.story_set.filter(
-            created__gt=timezone.now() - timezone.timedelta(days=1))
-        return stories.exists()
+    last_view_page_time = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
         return self.user.username

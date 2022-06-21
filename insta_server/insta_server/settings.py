@@ -45,7 +45,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'rest_framework.authtoken',
     "corsheaders",
-    "django_celery_results",
+    "versatileimagefield"
 ]
 
 ASGI_APPLICATION = 'insta_server.asgi.application'
@@ -212,9 +212,3 @@ COMMENT_LIKE_PAGE_SIZE = 10
 
 FOLLOW_FOLLOWER_SIZE = 10
 CHAT_LIST_SIZE = 15
-
-CELERY_RESULT_BACKEND = 'redis://localhost:6379'
-CELERY_BROKER_URL = "redis://localhost:6379/0"
-CELERY_ALWAYS_EAGER = True
-# CELERY_CACHE_BACKEND = 'django-cache'
-# CELERY_ALWAYS_EAGER = False

@@ -17,14 +17,14 @@ class CommentApiTestCase(MyTestCase):
         comment_dict = {
             'post_code': 'code2',
             'body': 'comment for post 2',
-            'reply_to_comment': old_comment_id
+            'reply_to': old_comment_id
         }
         resp = self.client.post("/comments/", comment_dict)
         comment_id = resp.json()["id"]
         comment = Comment.objects.get(pk=comment_id)
         self.assertEqual(comment.body, comment_dict["body"])
         self.assertEqual(comment.profile.user.username, 'test_user1')
-        self.assertEqual(comment.reply_to_comment.id, old_comment_id)
+        self.assertEqual(comment.reply_to.id, old_comment_id)
 
     def test_comment_delete(self):
         comment = Comment.objects.create(

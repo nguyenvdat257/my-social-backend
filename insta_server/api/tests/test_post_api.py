@@ -63,6 +63,22 @@ class PostApiTestCase(MyTestCase):
         data = resp.json()
         result = data['results']
         self.assertEqual(len(result), 2)
+        self.assertTrue((self.profile_1.last_view_page_time - timezone.now()).total_seconds() < 0.5)
+
+    def test_post_get_new_current_user(self):
+        self.profile_1.last_view_page_time = timezone.now()
+        self.profile_1.save()
+        resp = self.client.get('/posts/current-user/new/')
+        data = resp.json()
+        self.assertEqual(len(data), 0)
+
+        # reset created to make a new post
+        self.post_2.created = timezone.now()
+        self.post_2.save()
+        # get post 2
+        resp = self.client.get('/posts/current-user/new/')
+        data = resp.json()
+        self.assertEqual(len(data), 1)
 
     def test_post_get_by_tag_popular(self):
         resp = self.client.get('/posts/tag-popular/hanoi/')

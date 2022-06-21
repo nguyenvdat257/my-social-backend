@@ -6,8 +6,8 @@ from .my_imports import *
 def create_comment(request):
     post = get_object_or_404(Post, code=request.data['post_code'])
     profile = request.user.profile
-    data = {'post': post.id, 'profile': profile.id, 'reply_to_comment': request.data.get(
-        'reply_to_comment'), 'body': request.data['body']}
+    data = {'post': post.id, 'profile': profile.id, 'reply_to': request.data.get(
+        'reply_to'), 'body': request.data['body']}
     serializer = CommentSerializer(data=data)
     if serializer.is_valid():
         serializer.save()
