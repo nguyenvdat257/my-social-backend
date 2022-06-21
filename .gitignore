@@ -1,1 +1,8 @@
-insta_server/insta_server/__pycache__/__init__.cpython-310.pyc
+media
+*.pyc
+*sqlite3
+api/migrations
+/tests
+/insta_server/__pycache__/*
+.vscode
+.pytest_cache

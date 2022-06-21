@@ -1,6 +1,0 @@
-media
-*.pyc
-*sqlite3
-api/migrations
-/tests
-/insta_server/__pycache__/*
