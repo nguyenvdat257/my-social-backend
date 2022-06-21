@@ -18,9 +18,22 @@ class MyTokenObtainPairView(TokenObtainPairView):
 
 @api_view(['POST'])
 def user_signup(request):
-    serializer = UserSerializer(data=request.data, context={'name': request.data['name'], 'email': request.data['email']})
-    if serializer.is_valid():
+    serializer = UserSerializer(data=request.data)
+    is_valid, error_fields = serializer.is_valid()
+    if is_valid:
         serializer.save()
         return Response('Sign up successfully!')
     else:
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+def validate_user_signup(request):
+    serializer = UserSerializer(data=request.data)
+    is_valid, error_fields = serializer.is_valid()
+    if is_valid:
+        serializer.save()
+        return Response('Sign up successfully!')
+    else:
+        return Response(error_fields, status=status.HTTP_400_BAD_REQUEST)
+

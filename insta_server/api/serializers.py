@@ -11,6 +11,8 @@ import re
 import cv2
 import os
 from django.conf import settings
+from versatileimagefield.serializers import VersatileImageFieldSerializer
+from django.core.exceptions import ValidationError
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -35,27 +37,49 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 
 
 class UserSerializer(ModelSerializer):
+    name = serializers.CharField(read_only=True, source='profile.name')
+    email = serializers.CharField(read_only=True, source='profile.email')
     class Meta:
         model = User
         fields = '__all__'
 
+    def is_valid(self, raise_exception=False):
+        user_valid = super(UserSerializer, self).is_valid()
+        profile_data = {}
+        if 'name' in self.initial_data:
+            profile_data['name'] = self.initial_data['name']
+        if 'email' in self.initial_data:
+            profile_data['email'] = self.initial_data['email']
+        serializer = ProfileSerializer(data=profile_data, partial=True)
+        profile_valid =serializer.is_valid()
+        self.errors.update(serializer.errors)
+        return user_valid and profile_valid, list(self.errors.keys()) + list(serializer.errors.keys())
+
     def create(self, validated_data):
-        user = User.objects.create(username=validated_data['username'])
-        user.set_password(validated_data['password'])
+        user = User.objects.create(username=self.initial_data['username'])
+        user.set_password(self.initial_data['password'])
         user.save()
         profile = Profile.objects.create(
-            user=user, name=self.context['name'], email=self.context['email'])
+            user=user, name=self.initial_data['name'], email=self.initial_data['email'])
         profile.save()
         return user
 
 
 class ProfileSerializer(DynamicFieldsModelSerializer):
     username = serializers.CharField(read_only=True, source='user.username')
-    num_posts = serializers.IntegerField(read_only=True, source='num_posts')
+    avatar = VersatileImageFieldSerializer(
+        sizes=[
+            ("thumbnail", "crop__100x100"),
+            ("thumbnail_larger", "crop__200x200"),
+        ],
+        read_only=True,
+    )
+    num_posts = serializers.IntegerField(
+        read_only=True, source='post_set.count')
     num_followings = serializers.IntegerField(
-        read_only=True, source='num_followings')
+        read_only=True, source='follower.count')
     num_followers = serializers.IntegerField(
-        read_only=True, source='num_followers')
+        read_only=True, source='following.count')
     is_follow = serializers.SerializerMethodField()
 
     def get_is_follow(self, obj):
@@ -70,7 +94,7 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
     def update(self, profile, validated_data):
         username = self.context.get('username')
         new_username = self.context.get('new_username')
-        user = User.objects.get(username=username)
+        user = profile.user
         user_data = {'username': new_username}
         user_serializer = UserSerializer(
             instance=user, data=user_data, partial=True)
@@ -85,16 +109,9 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
 
 class ProfileLightSerializer(ModelSerializer):
     username = serializers.CharField(read_only=True, source='user.username')
-    is_follow = serializers.SerializerMethodField()
-
-    def get_is_follow(self, obj):
-        if 'profile' not in self.context:
-            return False
-        return Follow.objects.filter(follower=self.context['profile'], following=obj).exists()
-
     class Meta:
         model = Profile
-        fields = ['name', 'username', 'avatar', 'is_follow']
+        fields = ['name', 'username', 'avatar']
 
 
 class HashtagSerializer(ModelSerializer):
@@ -195,7 +212,13 @@ class PostSerializer(DynamicFieldsModelSerializer):
 class CommentSerializer(ModelSerializer):
     username = serializers.CharField(
         read_only=True, source='profile.user.username')
-    avatar = serializers.ImageField(read_only=True, source='profile.avatar')
+    avatar = VersatileImageFieldSerializer(
+        sizes=[
+            ("thumbnail", "crop__100x100"),
+        ],
+        read_only=True,
+        source='profile.avatar'
+    )
 
     class Meta:
         model = Comment
@@ -244,6 +267,12 @@ class NotificationSerializer(ModelSerializer):
 
 class ProfileChatSerializer(ModelSerializer):
     username = serializers.CharField(read_only=True, source='user.username')
+    avatar = VersatileImageFieldSerializer(
+        sizes=[
+            ("thumbnail", "crop__100x100"),
+        ],
+        read_only=True,
+    )
 
     class Meta:
         model = Profile
@@ -332,10 +361,12 @@ class ChatRoomSerializer(ModelSerializer):
         if 'added_profiles' in self.context:
             for profile in self.context['added_profiles']:
                 if profile not in existing_profiles:
-                    ChatRoomProfile.objects.create(chatroom=chatroom, profile=profile)
+                    ChatRoomProfile.objects.create(
+                        chatroom=chatroom, profile=profile)
         if 'removed_profiles' in self.context:
             for profile in self.context['removed_profiles']:
-                ChatRoomProfile.objects.filter(chatroom=chatroom, profile=profile).delete()
+                ChatRoomProfile.objects.filter(
+                    chatroom=chatroom, profile=profile).delete()
         return chatroom
 
 
@@ -347,7 +378,8 @@ class ChatSerializer(ModelSerializer):
     seen_profiles = serializers.SerializerMethodField()
 
     def get_reaction_types(self, chat):
-        types = set([reaction.type for reaction in chat.chatreaction_set.all()])
+        types = set(
+            [reaction.type for reaction in chat.chatreaction_set.all()])
         if len(types) > 0:
             return list(types)
         return None

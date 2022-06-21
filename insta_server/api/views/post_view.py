@@ -64,7 +64,21 @@ def get_posts_current_user(request): # 'posts/current-user/'
         profile=profile))
     result_page = paginator.paginate_queryset(posts, request)
     serializer = PostSerializer(result_page, many=True)
+    if not paginator.get_previous_link():
+        profile.last_view_page_time = timezone.now()
+        profile.save()
     return paginator.get_paginated_response(serializer.data)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_new_posts_current_user(request): # 'posts/current-user/'
+    profile = request.user.profile
+    posts = Post.objects.filter(Q(profile__following__follower=profile) | Q(
+        profile=profile)).filter(created__gt=profile.last_view_page_time)
+    profile.last_view_page_time = timezone.now()
+    profile.save()
+    serializer = PostSerializer(posts, many=True)
+    return Response(serializer.data)
 
 
 @api_view(['POST'])
