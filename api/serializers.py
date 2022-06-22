@@ -109,6 +109,13 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
 
 class ProfileLightSerializer(ModelSerializer):
     username = serializers.CharField(read_only=True, source='user.username')
+    avatar = VersatileImageFieldSerializer(
+        sizes=[
+            ("thumbnail", "crop__100x100"),
+            ("thumbnail_larger", "crop__200x200"),
+        ],
+        read_only=True,
+    )
     class Meta:
         model = Profile
         fields = ['name', 'username', 'avatar']

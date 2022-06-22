@@ -27,8 +27,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = True
 
 # ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
-# ALLOWED_HOSTS = ['.herokuapp.com']
-ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'localhost', 'testserver']
+ALLOWED_HOSTS = ['.herokuapp.com', '127.0.0.1']
+# ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'localhost', 'testserver']
 
 
 # Application definition
@@ -56,7 +56,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
+            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
         },
     }
 }
@@ -195,8 +195,8 @@ AWS_STORAGE_BUCKET_NAME = 'datnguyen-insta'
 
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
-# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-# STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -214,6 +214,10 @@ COMMENT_LIKE_PAGE_SIZE = 10
 
 FOLLOW_FOLLOWER_SIZE = 10
 CHAT_LIST_SIZE = 15
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://social-net-216.herokuapp.com'
+]
 
 import django_heroku
 django_heroku.settings(locals())
