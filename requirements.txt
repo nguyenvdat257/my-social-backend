@@ -82,7 +82,6 @@ pytest-asyncio==0.18.3
 pytest-django==4.5.2
 python-dateutil==2.8.2
 python-magic==0.4.27
-python-magic-bin==0.4.14
 pytz==2022.1
 pywin32==304
 pyzmq==23.0.0

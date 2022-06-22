@@ -45,9 +45,9 @@ class CommentApiTestCase(MyTestCase):
         resp = self.client.get("/comments/post-code/code2/")
         data = resp.json()['results']
         self.assertEqual(data[0]['username'], 'test_user2')
-        self.assertTrue('test_img2' in data[0]['avatar'])
+        self.assertTrue('avatar' in data[0])
         self.assertEqual(data[1]['username'], 'test_user1')
-        self.assertTrue('test_img1' in data[1]['avatar'])
+        self.assertTrue('avatar' in data[0])
 
     
     def test_comment_like_unlike(self):
