@@ -6,3 +6,4 @@ api/migrations
 /insta_server/__pycache__/*
 .vscode
 .pytest_cache
+.env

@@ -21,12 +21,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-k1i-ira-#@-+j(b-p76_&wv+gjt7f38tl5f3nl!keuj4*254+!'
+# SECRET_KEY = 'django-insecure-k1i-ira-#@-+j(b-p76_&wv+gjt7f38tl5f3nl!keuj4*254+!'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
+# ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
+# ALLOWED_HOSTS = ['.herokuapp.com']
+ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'localhost', 'testserver']
 
 
 # Application definition
@@ -212,3 +214,6 @@ COMMENT_LIKE_PAGE_SIZE = 10
 
 FOLLOW_FOLLOWER_SIZE = 10
 CHAT_LIST_SIZE = 15
+
+import django_heroku
+django_heroku.settings(locals())
