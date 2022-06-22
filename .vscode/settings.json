@@ -2,7 +2,7 @@
     "python.testing.unittestArgs": [
         "-v",
         "-s",
-        "./insta_server",
+        "./api",
         "-p",
         "test*.py"
     ],
