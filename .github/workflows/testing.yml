@@ -30,11 +30,6 @@ jobs:
       uses: supercharge/redis-github-action@1.4.0
       with:
         redis-version: ${{ matrix.redis-version }}
-    - name: Coverage report
-      run: |
-        pip install coverage
-        coverage run manage.py test
-        coverage report 
     - name: Django Testing
       run: |
         python3 manage.py test

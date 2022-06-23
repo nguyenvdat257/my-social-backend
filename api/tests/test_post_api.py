@@ -29,7 +29,7 @@ class PostApiTestCase(MyTestCase):
     # def test_post_create(self):
     #     post_dict = {
     #         'body': 'new post #seagame #hanoi bright',
-    #         # 'video': self.video_1,
+    #         # 'video': self.video_mages1,
     #         # 'images': [self.image_1, self.image_2]
     #         'video': SimpleUploadedFile(name='test_video1.mp4', content=open(self.video_path1, 'rb').read(), content_type='video'),
     #         'images': [SimpleUploadedFile(name='test_img1.jpg', content=open(self.image_path1, 'rb').read(), content_type='image'),
