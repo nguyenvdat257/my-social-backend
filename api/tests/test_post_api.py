@@ -26,25 +26,25 @@ class PostApiTestCase(MyTestCase):
         resp = self.client.post("/posts/", post_dict)
         self.assertEqual(resp.status_code, 401)
 
-    # def test_post_create(self):
-    #     post_dict = {
-    #         'body': 'new post #seagame #hanoi bright',
-    #         # 'video': self.video_mages1,
-    #         # 'images': [self.image_1, self.image_2]
-    #         'video': SimpleUploadedFile(name='test_video1.mp4', content=open(self.video_path1, 'rb').read(), content_type='video'),
-    #         'images': [SimpleUploadedFile(name='test_img1.jpg', content=open(self.image_path1, 'rb').read(), content_type='image'),
-    #                    SimpleUploadedFile(name='test_img2.jpg', content=open(self.image_path2, 'rb').read(), content_type='image')]
-    #     }
-    #     resp = self.client.post("/posts/", post_dict)
-    #     post_id = resp.json()["id"]
-    #     post = Post.objects.get(pk=post_id)
-    #     hash_tags = [hash_tag.body for hash_tag in post.hash_tags.all()]
-    #     self.assertEqual(post.body, post_dict["body"])
-    #     self.assertTrue('video1' in post.video.url)
-    #     self.assertTrue('video_thumbnail' in post.video_thumbnail.url)
-    #     self.assertEqual(len(post.postimage_set.all()), 2)
-    #     self.assertTrue('seagame' in hash_tags)
-    #     self.assertTrue('hanoi' in hash_tags)
+    def test_post_create(self):
+        post_dict = {
+            'body': 'new post #seagame #hanoi bright',
+            # 'video': self.video_1,
+            # 'images': [self.image_1, self.image_2]
+            'video': SimpleUploadedFile(name='test_video1.mp4', content=open(self.video_path1, 'rb').read(), content_type='video'),
+            'images': [SimpleUploadedFile(name='test_img1.jpg', content=open(self.image_path1, 'rb').read(), content_type='image'),
+                       SimpleUploadedFile(name='test_img2.jpg', content=open(self.image_path2, 'rb').read(), content_type='image')]
+        }
+        resp = self.client.post("/posts/", post_dict)
+        post_id = resp.json()["id"]
+        post = Post.objects.get(pk=post_id)
+        hash_tags = [hash_tag.body for hash_tag in post.hash_tags.all()]
+        self.assertEqual(post.body, post_dict["body"])
+        self.assertTrue('video1' in post.video.url)
+        self.assertTrue('video_thumbnail' in post.video_thumbnail.url)
+        self.assertEqual(len(post.postimage_set.all()), 2)
+        self.assertTrue('seagame' in hash_tags)
+        self.assertTrue('hanoi' in hash_tags)
 
     def test_post_update(self):
         post_dict = {
