@@ -27,8 +27,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 DEBUG = True
 
 # ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
-ALLOWED_HOSTS = ['.herokuapp.com', '127.0.0.1']
-# ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'localhost', 'testserver']
+# ALLOWED_HOSTS = ['.herokuapp.com', '127.0.0.1']
+ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'localhost', 'testserver']
 
 
 # Application definition
@@ -56,7 +56,7 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
+            "hosts": [('127.0.0.1', 6379)],
         },
     }
 }
