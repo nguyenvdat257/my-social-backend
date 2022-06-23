@@ -218,6 +218,3 @@ CHAT_LIST_SIZE = 15
 CSRF_TRUSTED_ORIGINS = [
     'https://social-net-216.herokuapp.com'
 ]
-
-import django_heroku
-django_heroku.settings(locals())
