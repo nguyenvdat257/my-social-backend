@@ -1,7 +1,6 @@
 media
 *.pyc
 *sqlite3
-/tests
 /insta_server/__pycache__/*
 .vscode
 .pytest_cache
