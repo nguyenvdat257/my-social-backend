@@ -7,7 +7,7 @@ from rest_framework_simplejwt.views import (
 )
 
 urlpatterns = [
-    path('profiles/', views.update_profile, name="update-profile"),
+    path('profiles/', views.my_profile, name="my-profile"),
     path('profiles/username/<str:username>/', views.get_profile, name="get-profile"),
     path('profiles/suggest/', views.get_suggest_profile, name="get-suggest-profile"),
     path('profiles/search/<str:keyword>/', views.get_search_profile, name="get-search-profile"),
@@ -28,7 +28,8 @@ urlpatterns = [
     path('comments/post-code/<str:post_code>/', views.get_comments, name="get-comments"),
     path('comments/like-unlike/', views.like_unlike_comment, name="like-unlike-comment"),
     path('comments/like-profile/<int:pk>/', views.get_comment_like_profile, name="comment-like-profile"),
-    path('stories/', views.create_get_story, name="create-get-story"),
+    path('stories/', views.create_story, name="create-get-story"),
+    path('stories/current-user/', views.get_stories_current_user, name="get-stories-current-user"),
     path('stories/<int:pk>/', views.delete_story, name="delete-story"),
     path('stories/like-unlike/', views.like_unlike_story, name="like-unlike-story"),
     path('stories/view/', views.view_story, name="view-story"),

@@ -39,6 +39,7 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
 class UserSerializer(ModelSerializer):
     name = serializers.CharField(read_only=True, source='profile.name')
     email = serializers.CharField(read_only=True, source='profile.email')
+
     class Meta:
         model = User
         fields = '__all__'
@@ -51,8 +52,7 @@ class UserSerializer(ModelSerializer):
         if 'email' in self.initial_data:
             profile_data['email'] = self.initial_data['email']
         serializer = ProfileSerializer(data=profile_data, partial=True)
-        profile_valid =serializer.is_valid()
-        self.errors.update(serializer.errors)
+        profile_valid = serializer.is_valid()
         return user_valid and profile_valid, list(self.errors.keys()) + list(serializer.errors.keys())
 
     def create(self, validated_data):
@@ -91,16 +91,41 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
         model = Profile
         fields = '__all__'
 
+
+class ProfileEditSerializer(ModelSerializer):
+    username = serializers.CharField(read_only=True, source='user.username')
+    avatar = VersatileImageFieldSerializer(
+        sizes=[
+            ("thumbnail", "crop__100x100"),
+            ("thumbnail_larger", "crop__200x200"),
+        ]
+    )
+
+    class Meta:
+        model = Profile
+        fields = '__all__'
+
+    def is_valid(self, raise_exception=False):
+        profile_valid = super(ProfileEditSerializer, self).is_valid()
+        if self.context.get('new_username') and self.context['new_username'] != self.context['username']:
+            user_data = {}
+            user_data['username'] = self.context['new_username']
+            serializer = UserSerializer(data=user_data, partial=True)
+            user_valid = serializer.is_valid()[0]
+            return user_valid and profile_valid, list(self.errors.keys()) + list(serializer.errors.keys())
+        else:
+            return profile_valid, list(self.errors.keys())
+
     def update(self, profile, validated_data):
         username = self.context.get('username')
         new_username = self.context.get('new_username')
         user = profile.user
-        user_data = {'username': new_username}
-        user_serializer = UserSerializer(
-            instance=user, data=user_data, partial=True)
-
-        if user_serializer.is_valid():
-            user_serializer.save()
+        if new_username and new_username != username:
+            user_data = {'username': new_username}
+            user_serializer = UserSerializer(
+                instance=user, data=user_data, partial=True)
+            if user_serializer.is_valid():
+                user_serializer.save()
         for (key, value) in validated_data.items():
             setattr(profile, key, value)
         profile.save()
@@ -116,6 +141,7 @@ class ProfileLightSerializer(ModelSerializer):
         ],
         read_only=True,
     )
+
     class Meta:
         model = Profile
         fields = ['name', 'username', 'avatar']
@@ -245,7 +271,11 @@ class StoryImageSerializer(ModelSerializer):
 class StorySerializer(ModelSerializer):
     images = StoryImageSerializer(source='storyimage_set', many=True)
     profile_info = ProfileLightSerializer(source='profile', read_only=True)
+    is_seen = serializers.SerializerMethodField()
     hour_ago = serializers.IntegerField()
+
+    def get_is_seen(self, story):
+        return StoryView.objects.filter(profile=self.context['current_profile'], story=story).exists()
 
     class Meta:
         model = Story

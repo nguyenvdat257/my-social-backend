@@ -13,7 +13,7 @@ class Profile(models.Model):
     avatar = VersatileImageField(upload_to='images', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     website = models.URLField(blank=True, null=True)
-    email = models.EmailField(blank=True, null=True)
+    email = models.EmailField(blank=True, null=True, unique=True)
     phone_number = models.CharField(max_length=100, blank=True, null=True)
     GENDER_CHOICES = (
         ('M', 'Male'),
@@ -27,7 +27,8 @@ class Profile(models.Model):
         ('PU', 'Public'),
         ('PR', 'Private')
     )
-    type = models.CharField(max_length=2, choices=PROFILE_TYPES, default='PU')
+    account_type = models.CharField(max_length=2, choices=PROFILE_TYPES, default='PU')
+    show_activity = models.BooleanField(default=True)
     online = models.IntegerField(default=0)
     last_active = models.DateTimeField(null=True, blank=True)
     last_view_page_time = models.DateTimeField(default=timezone.now)
@@ -221,8 +222,8 @@ class StoryLike(models.Model):
 
 
 class StoryView(models.Model):
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    story = models.ForeignKey(Story, on_delete=models.CASCADE)
+    profile = models.ForeignKey(Profile, related_name='profile_view', on_delete=models.CASCADE)
+    story = models.ForeignKey(Story, related_name='story_view', on_delete=models.CASCADE)
 
     def __str__(self):
         return str(self.profile) + ' views ' + str(self.story.id)
