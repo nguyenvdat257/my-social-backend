@@ -24,6 +24,7 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
     def __init__(self, *args, **kwargs):
         # Don't pass the 'fields' arg up to the superclass
         fields = kwargs.pop('fields', None)
+        remove_fields = kwargs.pop('remove_fields', None)
 
         # Instantiate the superclass normally
         super().__init__(*args, **kwargs)
@@ -33,6 +34,11 @@ class DynamicFieldsModelSerializer(serializers.ModelSerializer):
             allowed = set(fields)
             existing = set(self.fields)
             for field_name in existing - allowed:
+                self.fields.pop(field_name)
+
+        if remove_fields is not None:
+            # for multiple fields in a list
+            for field_name in remove_fields:
                 self.fields.pop(field_name)
 
 
@@ -141,10 +147,16 @@ class ProfileLightSerializer(ModelSerializer):
         ],
         read_only=True,
     )
+    is_follow = serializers.SerializerMethodField()
+
+    def get_is_follow(self, obj):
+        if 'profile' not in self.context:
+            return False
+        return Follow.objects.filter(follower=self.context['profile'], following=obj).exists()
 
     class Meta:
         model = Profile
-        fields = ['name', 'username', 'avatar']
+        fields = ['name', 'username', 'avatar', 'is_follow', 'id']
 
 
 class HashtagSerializer(ModelSerializer):
@@ -178,15 +190,39 @@ class PostLightSerializer(ModelSerializer):
 class PostSerializer(DynamicFieldsModelSerializer):
     hash_tags = HashtagSerializer(many=True)
     images = PostImageSerializer(source='postimage_set', many=True)
-    profile_info = ProfileLightSerializer(source='profile', read_only=True)
+    # profile_info = ProfileLightSerializer(source='profile', read_only=True)
+    profile_info = serializers.SerializerMethodField()
+    comments = serializers.SerializerMethodField()
+    likes_count = serializers.IntegerField(
+        source='postlike_set.count', read_only=True)
+    comments_count = serializers.IntegerField(
+        source='comment_set.count', read_only=True)
+    is_like = serializers.SerializerMethodField()
+    is_saved = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
         fields = '__all__'
 
+    def get_profile_info(self, post):
+        serializer = ProfileLightSerializer(
+            post.profile, context={'profile': self.context['current_profile']})
+        return serializer.data
+
+    def get_comments(self, post):
+        comments = Comment.objects.filter(
+            post=post, reply_to=None).order_by('-created')[:2]
+        return CommentSerializer(comments, many=True, context=self.context).data
+
     def get_hashtag(self, body):
         hashtags = list(set(re.findall(r"#(\w+)", body)))
         return hashtags
+
+    def get_is_like(self, post):
+        return PostLike.objects.filter(profile=self.context['current_profile'], post=post).exists()
+
+    def get_is_saved(self, post):
+        return SavedPost.objects.filter(profile=self.context['current_profile'], post=post).exists()
 
     def create(self, validated_data):
         code = get_random_string(length=11)
@@ -252,6 +288,17 @@ class CommentSerializer(ModelSerializer):
         read_only=True,
         source='profile.avatar'
     )
+    likes_count = serializers.IntegerField(
+        source='commentlike_set.count', read_only=True)
+    is_like = serializers.SerializerMethodField()
+    reply_count = serializers.IntegerField(
+        source='reply_comments.count', read_only=True)
+
+    def get_is_like(self, comment):
+        if self.context:
+            return CommentLike.objects.filter(profile=self.context['current_profile'], comment=comment).exists()
+        else:
+            return False
 
     class Meta:
         model = Comment
@@ -268,18 +315,26 @@ class StoryImageSerializer(ModelSerializer):
         fields = '__all__'
 
 
-class StorySerializer(ModelSerializer):
+class StorySerializer(DynamicFieldsModelSerializer):
     images = StoryImageSerializer(source='storyimage_set', many=True)
     profile_info = ProfileLightSerializer(source='profile', read_only=True)
     is_seen = serializers.SerializerMethodField()
+    is_like = serializers.SerializerMethodField()
     hour_ago = serializers.IntegerField()
+    view_count = serializers.SerializerMethodField()
 
     def get_is_seen(self, story):
         return StoryView.objects.filter(profile=self.context['current_profile'], story=story).exists()
 
+    def get_is_like(self, story):
+        return StoryLike.objects.filter(profile=self.context['current_profile'], story=story).exists()
+
+    def get_view_count(self, story):
+        return StoryView.objects.filter(story=story).exclude(profile=self.context['current_profile']).count()
+
     class Meta:
         model = Story
-        exclude = ('view_profiles', 'like_profiles')
+        exclude = ['view_profiles', 'like_profiles']
 
     def create(self, validated_data):
         new_story = Story.objects.create(**validated_data)

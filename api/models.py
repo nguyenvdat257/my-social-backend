@@ -27,7 +27,8 @@ class Profile(models.Model):
         ('PU', 'Public'),
         ('PR', 'Private')
     )
-    account_type = models.CharField(max_length=2, choices=PROFILE_TYPES, default='PU')
+    account_type = models.CharField(
+        max_length=2, choices=PROFILE_TYPES, default='PU')
     show_activity = models.BooleanField(default=True)
     online = models.IntegerField(default=0)
     last_active = models.DateTimeField(null=True, blank=True)
@@ -52,15 +53,13 @@ class Post(models.Model):
         blank=True, null=True, upload_to='images')
     code = models.CharField(max_length=11, default='', unique=True)
     hash_tags = models.ManyToManyField(HashTag)
-    likes_count = models.IntegerField(default=0)
-    comments_count = models.IntegerField(default=0)
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [models.Index(fields=['code'])]
 
     def __str__(self):
-        return str(self.profile) + ' post ' + str(self.id)
+        return str(self.profile) + ' post ' + str(self.code)
 
 
 class PostSeen(models.Model):
@@ -102,10 +101,9 @@ class SavedPost(models.Model):
 class Comment(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     reply_to = models.ForeignKey(
-        'self', blank=True, null=True, on_delete=models.RESTRICT)
+        'self', blank=True, null=True, related_name='reply_comments', on_delete=models.SET_NULL)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     body = models.TextField()
-    likes_count = models.IntegerField(default=0)
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -174,17 +172,6 @@ class Follow(models.Model):
     def __str__(self):
         return str(self.follower) + " follows " + str(self.following)
 
-# class FollowHashTag(models.Model):
-#     follower = models.ForeignKey(
-#         Profile, related_name='follower', on_delete=models.CASCADE)
-#     hashtag = models.ForeignKey(HashTag, related_name='hashtag', on_delete=models.CASCADE)
-
-#     class Meta:
-#         unique_together = ('follower', 'hashtag',)
-
-#     def __str__(self):
-#         return str(self.follower) + " follows " + str(self.hashtag)
-
 
 class Story(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
@@ -222,8 +209,10 @@ class StoryLike(models.Model):
 
 
 class StoryView(models.Model):
-    profile = models.ForeignKey(Profile, related_name='profile_view', on_delete=models.CASCADE)
-    story = models.ForeignKey(Story, related_name='story_view', on_delete=models.CASCADE)
+    profile = models.ForeignKey(
+        Profile, related_name='profile_view', on_delete=models.CASCADE)
+    story = models.ForeignKey(
+        Story, related_name='story_view', on_delete=models.CASCADE)
 
     def __str__(self):
         return str(self.profile) + ' views ' + str(self.story.id)
@@ -252,7 +241,8 @@ class Chat(models.Model):
 class ChatRoomProfile(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     chatroom = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
-    last_seen = models.ForeignKey(Chat, blank=True, null=True, on_delete=models.RESTRICT)
+    last_seen = models.ForeignKey(
+        Chat, blank=True, null=True, on_delete=models.RESTRICT)
     name = models.CharField(max_length=200, blank=True, null=True)
     is_mute = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)

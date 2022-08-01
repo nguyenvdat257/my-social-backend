@@ -26,6 +26,7 @@ urlpatterns = [
     path('comments/', views.create_comment, name="create-comment"),
     path('comments/<int:pk>/', views.delete_comment, name="delete-comment"),
     path('comments/post-code/<str:post_code>/', views.get_comments, name="get-comments"),
+    path('comments/reply-comments/<str:comment_id>/', views.get_reply_comments, name="get-reply-comments"),
     path('comments/like-unlike/', views.like_unlike_comment, name="like-unlike-comment"),
     path('comments/like-profile/<int:pk>/', views.get_comment_like_profile, name="comment-like-profile"),
     path('stories/', views.create_story, name="create-get-story"),

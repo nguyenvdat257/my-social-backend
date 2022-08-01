@@ -8,7 +8,7 @@ def my_profile(request):
         current_user = request.user
         data = request.data
         profile = Profile.objects.get(user__username=current_user.username)
-        serializer = ProfileEditSerializer(profile)
+        serializer = ProfileLightSerializer(profile)
         return Response(serializer.data)
     if request.method == 'PUT':
         current_user = request.user
