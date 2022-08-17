@@ -21,14 +21,14 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-k1i-ira-#@-+j(b-p76_&wv+gjt7f38tl5f3nl!keuj4*254+!'
+# SECRET_KEY = 'django-insecure-k1i-ira-#@-+j(b-p76_&wv+gjt7f38tl5f3nl!keuj4*254+!'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 # ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'testserver']
-# ALLOWED_HOSTS = ['.herokuapp.com', '127.0.0.1']
-ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'localhost', 'testserver']
+ALLOWED_HOSTS = ['.herokuapp.com', '127.0.0.1']
+# ALLOWED_HOSTS = ['0.0.0.0', '127.0.0.1', 'localhost', 'testserver']
 
 
 # Application definition
@@ -56,7 +56,8 @@ CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
+            "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
+            # "hosts": [('127.0.0.1', 6379)],
         },
     }
 }
@@ -195,8 +196,8 @@ AWS_STORAGE_BUCKET_NAME = 'datnguyen-insta'
 
 AWS_S3_FILE_OVERWRITE = False
 AWS_DEFAULT_ACL = None
-# DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
-# STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+STATICFILES_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
 
 CORS_ALLOW_ALL_ORIGINS = True
 
@@ -220,3 +221,6 @@ NOTIFICATION_SIZE = 10
 CSRF_TRUSTED_ORIGINS = [
     'https://social-net-216.herokuapp.com'
 ]
+
+import django_heroku
+django_heroku.settings(locals()) 
