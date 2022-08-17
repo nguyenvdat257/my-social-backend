@@ -1,4 +1,6 @@
 from .my_imports import *
+from asgiref.sync import async_to_sync
+import channels.layers
 
 
 @api_view(['POST'])
@@ -107,3 +109,33 @@ def get_story_activity(request, pk):  # 'stories/<int:pk>/activity/'
         return paginator.get_paginated_response(serializer.data)
     else:
         return Response('Cannot get story activity', status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reply_story(request):
+    if request.method == 'POST':
+        current_profile = request.user.profile
+        usernames = request.data['usernames']
+        message = request.data['message']
+        reply_story_img = request.data['reply_story_img']
+
+        profiles = Profile.objects.filter(user__username__in=usernames)
+        layer = channels.layers.get_channel_layer()
+        for profile in profiles:
+            serializer = ChatRoomSerializer(data={}, partial=True, context={
+                                            'profiles': [current_profile, profile], 'current_profile': current_profile})
+            if serializer.is_valid():
+                serializer.save()
+                chatroom = serializer.data
+                chat = Chat.objects.create(
+                    profile=current_profile, chatroom_id=chatroom['id'], body=message,
+                    type='R', reply_story_img=reply_story_img)
+                chat_data = ChatSerializer(chat).data
+                send_obj = {'type': 'message', 'chat': chat_data}
+                room_group_name = 'chatroom_%s' % chatroom['id']
+                async_to_sync(layer.group_send)(
+                    room_group_name, send_obj
+                )
+            else:
+                return Response('Cannot reply story', status=status.HTTP_400_BAD_REQUEST)
+        return Response('Successfully reply story')

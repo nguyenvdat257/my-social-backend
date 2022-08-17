@@ -75,6 +75,9 @@ class PostImage(models.Model):
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     order = models.IntegerField(default=0)
 
+    class Meta:
+        ordering = ['order']
+
     def __str__(self):
         return 'post: ' + str(self.post) + ' image: ' + str(self.image.url[-15:])
 
@@ -126,13 +129,14 @@ class RecentSearch(models.Model):
         Profile, blank=True, null=True, related_name='search_profile', on_delete=models.CASCADE)
     search_hashtag = models.ForeignKey(
         HashTag, blank=True, null=True, on_delete=models.CASCADE)
+    modified = models.DateTimeField(auto_now=True)
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         if self.search_profile:
-            return str(self.current_profile) + ' search ' + str(self.search_profile)[:15]
+            return str(self.current_profile) + ' search ' + str(self.search_profile)[:15] + ' id ' + str(self.id)
         else:
-            return str(self.current_profile) + ' search ' + str(self.search_hashtag)[:15]
+            return str(self.current_profile) + ' search ' + str(self.search_hashtag)[:15] + ' id ' + str(self.id)
 
 
 class Notification(models.Model):
@@ -228,19 +232,29 @@ class ChatRoom(models.Model):
 
 class Chat(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    chatroom = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
+    chatroom = models.ForeignKey(ChatRoom, related_name='chat_set', on_delete=models.CASCADE)
     reply_to = models.ForeignKey(
         'self', blank=True, null=True, on_delete=models.RESTRICT)
-    body = models.TextField()
+    body = models.TextField(blank=True, null=True)
+    CHAT_TYPES = (
+        ('N', 'normal'),
+        ('S', 'share_post'),
+        ('R', 'reply_story')
+    )
+    type = models.CharField(
+        max_length=2, choices=CHAT_TYPES, default='N')
+    share_post_img = models.TextField(blank=True, null=True)
+    share_post_code = models.CharField(max_length=11, blank=True, null=True)
+    reply_story_img = models.TextField(blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.body[:15]
+        return self.body[:15] if self.body is not None else ''
 
 
 class ChatRoomProfile(models.Model):
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    chatroom = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
+    profile = models.ForeignKey(Profile, related_name='profile_chatroom', on_delete=models.CASCADE)
+    chatroom = models.ForeignKey(ChatRoom, related_name='chatroom_profile', on_delete=models.CASCADE)
     last_seen = models.ForeignKey(
         Chat, blank=True, null=True, on_delete=models.RESTRICT)
     name = models.CharField(max_length=200, blank=True, null=True)

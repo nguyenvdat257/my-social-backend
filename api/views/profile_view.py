@@ -8,7 +8,7 @@ def my_profile(request):
         current_user = request.user
         data = request.data
         profile = Profile.objects.get(user__username=current_user.username)
-        serializer = ProfileLightSerializer(profile)
+        serializer = ProfileSerializer(profile)
         return Response(serializer.data)
     if request.method == 'PUT':
         current_user = request.user
@@ -31,8 +31,8 @@ def my_profile(request):
 def get_profile(request, username):  # get profile of username
     profile = get_object_or_404(Profile, user__username=username)
     fields = ('username', 'name', 'bio', 'avatar',
-              'num_posts', 'num_followings', 'num_followers', 'is_follow')
-    serializer = ProfileSerializer(profile, fields=fields)
+              'num_posts', 'num_followings', 'num_followers', 'is_follow', 'is_has_story', 'is_story_seen')
+    serializer = ProfileSerializer(profile, fields=fields, context={'profile': request.user.profile})
     return Response(serializer.data)
 
 
@@ -63,5 +63,6 @@ def get_search_profile(request, keyword):
     else:
         profiles = Profile.objects.filter(
             Q(user__username__contains=keyword) | Q(name__contains=keyword))[:20]
-    serializer = ProfileLightSerializer(profiles, many=True)
+    
+    serializer = ProfileLightSerializer(profiles, remove_fields=['is_follow'], context={'profile': request.user.profile}, many=True)
     return Response(serializer.data)

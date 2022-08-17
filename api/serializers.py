@@ -13,6 +13,7 @@ import os
 from django.conf import settings
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 from django.core.exceptions import ValidationError
+from django.db.models import Count
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -87,11 +88,25 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
     num_followers = serializers.IntegerField(
         read_only=True, source='following.count')
     is_follow = serializers.SerializerMethodField()
+    is_story_seen = serializers.SerializerMethodField()
+    is_has_story = serializers.SerializerMethodField()
 
     def get_is_follow(self, obj):
         if 'profile' not in self.context:
             return False
         return Follow.objects.filter(follower=self.context['profile'], following=obj).exists()
+
+    def get_is_story_seen(self, obj):
+        if 'profile' not in self.context:
+            return False
+        return StoryView.objects.filter(profile=self.context['profile']).filter(
+            story__profile=obj).filter(story__created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).exists()
+
+    def get_is_has_story(self, obj):
+        if 'profile' not in self.context:
+            return False
+        return Story.objects.filter(profile__following__follower=self.context['profile']).filter(profile=obj).filter(
+            created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).exists()
 
     class Meta:
         model = Profile
@@ -138,7 +153,7 @@ class ProfileEditSerializer(ModelSerializer):
         return profile
 
 
-class ProfileLightSerializer(ModelSerializer):
+class ProfileLightSerializer(DynamicFieldsModelSerializer):
     username = serializers.CharField(read_only=True, source='user.username')
     avatar = VersatileImageFieldSerializer(
         sizes=[
@@ -148,19 +163,36 @@ class ProfileLightSerializer(ModelSerializer):
         read_only=True,
     )
     is_follow = serializers.SerializerMethodField()
+    is_story_seen = serializers.SerializerMethodField()
+    is_has_story = serializers.SerializerMethodField()
 
     def get_is_follow(self, obj):
         if 'profile' not in self.context:
             return False
         return Follow.objects.filter(follower=self.context['profile'], following=obj).exists()
 
+    def get_is_story_seen(self, obj):
+        if 'profile' not in self.context:
+            return False
+        return StoryView.objects.filter(profile=self.context['profile']).filter(
+            story__profile=obj).filter(story__created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).exists()
+
+    def get_is_has_story(self, obj):
+        if 'profile' not in self.context:
+            return False
+        return Story.objects.filter(profile__following__follower=self.context['profile']).filter(profile=obj).filter(
+            created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).exists()
+
     class Meta:
         model = Profile
-        fields = ['name', 'username', 'avatar', 'is_follow', 'id']
+        fields = ['name', 'username', 'avatar',
+                  'is_follow', 'is_story_seen', 'is_has_story', 'id']
 
 
 class HashtagSerializer(ModelSerializer):
     body = serializers.CharField()
+    post_count = serializers.IntegerField(
+        source='post_set.count', read_only=True)
 
     class Meta:
         model = HashTag
@@ -173,6 +205,20 @@ class HashtagSerializer(ModelSerializer):
         return hashtag
 
 
+class RecentSearchSerializer(ModelSerializer):
+    search_profile = serializers.SerializerMethodField(read_only=True)
+    search_hashtag = HashtagSerializer(read_only=True)
+
+    def get_search_profile(self, obj):
+        if not obj.search_profile is None:
+            return ProfileLightSerializer(obj.search_profile, context=self.context).data
+        return None
+
+    class Meta:
+        model = RecentSearch
+        fields = '__all__'
+
+
 class PostImageSerializer(ModelSerializer):
     class Meta:
         model = PostImage
@@ -180,11 +226,21 @@ class PostImageSerializer(ModelSerializer):
 
 
 class PostLightSerializer(ModelSerializer):
-    images = PostImageSerializer(source='postimage_set', many=True)
+    image = serializers.SerializerMethodField()
+    # image = PostImageSerializer(source='postimage_set_all[0]', many=True)
+    likes_count = serializers.IntegerField(
+        source='postlike_set.count', read_only=True)
+    comments_count = serializers.IntegerField(
+        source='comment_set.count', read_only=True)
+
+    def get_image(self, post):
+        if post.postimage_set.count() > 0:
+            return PostImageSerializer(post.postimage_set.all()[0]).data
+        return None
 
     class Meta:
         model = Post
-        fields = ['images', 'likes_count', 'comments_count', 'code', 'id']
+        fields = ['image', 'likes_count', 'comments_count', 'code', 'id']
 
 
 class PostSerializer(DynamicFieldsModelSerializer):
@@ -350,6 +406,7 @@ class StorySerializer(DynamicFieldsModelSerializer):
 
 class NotificationSerializer(ModelSerializer):
     post = PostLightSerializer()
+    sender_profile = ProfileLightSerializer()
     comment = CommentSerializer()
 
     class Meta:
@@ -359,6 +416,7 @@ class NotificationSerializer(ModelSerializer):
 
 class ProfileChatSerializer(ModelSerializer):
     username = serializers.CharField(read_only=True, source='user.username')
+    is_online = serializers.SerializerMethodField()
     avatar = VersatileImageFieldSerializer(
         sizes=[
             ("thumbnail", "crop__100x100"),
@@ -366,16 +424,18 @@ class ProfileChatSerializer(ModelSerializer):
         read_only=True,
     )
 
+    def get_is_online(self, profile):
+        return profile.online > 0
+
     class Meta:
         model = Profile
-        fields = ['name', 'username', 'avatar']
+        fields = ['name', 'username', 'avatar', 'is_online']
 
 
 class ChatRoomSerializer(ModelSerializer):
     profiles = ProfileChatSerializer(many=True)
     chatroom_name = serializers.SerializerMethodField()
     is_mute = serializers.SerializerMethodField()
-    is_online = serializers.SerializerMethodField()
     last_active = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     is_have_new_chat = serializers.SerializerMethodField()
@@ -400,21 +460,22 @@ class ChatRoomSerializer(ModelSerializer):
             return chatroom_detail.is_mute
         return None
 
-    def get_is_online(self, chatroom):
-        profiles = chatroom.profiles.all()
-        online_profile = [
-            profile for profile in profiles if profile.online > 0]
-        return len(online_profile) > 0
-
     def get_last_active(self, chatroom):
         profiles = chatroom.profiles.all()
         if len(profiles) == 2:
             partner_profile = profiles[0] if profiles[0] != self.context['current_profile'] else profiles[1]
-            return partner_profile.last_active
+            if partner_profile.last_active > timezone.now() - timezone.timedelta(days=2):
+                return partner_profile.last_active
+        return None
 
     def get_last_message(self, chatroom):
         last_chat = chatroom.chat_set.last()
         if last_chat:
+            if last_chat.type == 'S':
+                if self.context['current_profile'] == last_chat.profile:
+                    return 'You sent a post'
+                else:
+                    return str(last_chat.profile.user.username) + ' sent a post'
             return last_chat.body
         else:
             return None
@@ -423,6 +484,8 @@ class ChatRoomSerializer(ModelSerializer):
         chatroom_detail = self.get_chatroom_detail(chatroom)
         if chatroom_detail:
             last_chat = chatroom.chat_set.last()
+            if last_chat is not None and last_chat.profile == self.context['current_profile']:
+                return False
             return last_chat != chatroom_detail.last_seen
         else:
             return False
@@ -432,6 +495,13 @@ class ChatRoomSerializer(ModelSerializer):
         fields = '__all__'
 
     def create(self, validated_data):
+        profiles = self.context['profiles']
+        # if single chatroom exists not create new one
+        if len(profiles) == 2:
+            chatrooms = ChatRoom.objects.annotate(num_profile=Count('profiles')).filter(
+                num_profile=2).filter(profiles=profiles[0]).filter(profiles=profiles[1])
+            if chatrooms.exists():
+                return chatrooms[0]
         new_chatroom = ChatRoom.objects.create()
         for profile in self.context['profiles']:
             chatroom_profile = ChatRoomProfile.objects.create(
@@ -480,7 +550,7 @@ class ChatSerializer(ModelSerializer):
         chatroom = chat.chatroom
         # filter profile who have last seen chat in this chat room equals to this chat
         profiles = Profile.objects.filter(
-            chatroomprofile__chatroom=chatroom, chatroomprofile__last_seen=chat)
+            profile_chatroom__chatroom=chatroom, profile_chatroom__last_seen=chat)
         if len(profiles) > 0:
             serializer = ProfileChatSerializer(profiles, many=True)
             return serializer.data

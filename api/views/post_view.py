@@ -1,17 +1,33 @@
 from .my_imports import *
+from django.db.models import Count
+from django.db.models import F
+
+
+def get_post_by_code(request, code):
+    if request.user.is_authenticated:
+        profile = request.user.profile
+        posts = Post.objects.filter(code=code).filter(Q(profile__following__follower=profile) | Q(
+            profile__account_type='PU') | Q(profile=profile)).distinct()
+    else:
+        posts = Post.objects.filter(code=code).filter(
+            profile__account_type='PU').distinct()
+    return posts
 
 
 @api_view(['GET', 'PUT', 'DELETE'])
 @permission_classes([IsAuthenticatedOrReadOnly])
 def process_post(request, code):
+    profile = get_object_or_404(
+        Profile, user__username=request.user.username)
     if request.method == 'GET':
-        post = get_object_or_404(Post, code=code)
-        serializer = PostSerializer(post)
-        return Response(serializer.data)
-
+        posts = get_post_by_code(request, code)
+        if len(posts) == 1:
+            serializer = PostSerializer(
+                posts[0], context={'current_profile': profile})
+            return Response(serializer.data)
+        else:
+            return Response('Error on get post', status=status.HTTP_400_BAD_REQUEST)
     if request.method == 'PUT':
-        profile = get_object_or_404(
-            Profile, user__username=request.user.username)
         post = get_object_or_404(Post, code=code)
         if profile == post.profile:
             serializer = PostSerializer(
@@ -31,13 +47,36 @@ def process_post(request, code):
 
 
 @api_view(['GET'])
-def get_posts(request, username):  # 'posts/user/<str:username>/'
+@permission_classes([IsAuthenticatedOrReadOnly])
+def get_posts_by_code_and_recent(request, code):
+    posts_by_code = get_post_by_code(request, code)
+    if len(posts_by_code) == 1:
+        post_by_code = posts_by_code[0]
+        posts_recent = Post.objects.none()
+        if request.user.is_authenticated:
+            profile = request.user.profile
+            posts_recent = Post.objects.exclude(code=code).filter(profile=post_by_code.profile).filter(Q(profile__following__follower=profile) | Q(
+                profile__account_type='PU') | Q(profile=profile)).order_by('-created')[:6]
+        else:
+            posts_recent = Post.objects.exclude(code=code).filter(profile=post_by_code.profile).filter(
+                profile__account_type='PU').order_by('-created')[:6]
+        postSerializer = PostSerializer(
+            posts_by_code, many=True, context={'current_profile': profile})
+        postLightSerializer = PostLightSerializer(posts_recent, many=True)
+        return Response(postSerializer.data + postLightSerializer.data)
+    else:
+        return Response('Error on get post', status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
+def get_posts(request, username):  # 'posts/username/<str:username>/'
     request_profile = get_object_or_404(
         Profile, user__username=username)
     paginator = pagination.CursorPagination()
     paginator.page_size = settings.POST_USER_PAGE_SIZE
-    if request_profile.type == 'PU':
-        posts = Post.objects.filter(profile__user__username=username)
+    if request_profile.account_type == 'PU':
+        posts = Post.objects.filter(
+            profile__user__username=username).order_by('-created')
         result_page = paginator.paginate_queryset(posts, request)
         serializer = PostLightSerializer(result_page, many=True)
         return paginator.get_paginated_response(serializer.data)
@@ -50,9 +89,11 @@ def get_posts(request, username):  # 'posts/user/<str:username>/'
             is_same_user = username == request.user.username
             if is_follow_request_user or is_same_user:
                 result_page = paginator.paginate_queryset(
-                    request_profile.post_set, request)
+                    request_profile.post_set.order_by('-created'), request)
                 serializer = PostLightSerializer(result_page, many=True)
                 return paginator.get_paginated_response(serializer.data)
+            else:
+                return Response({'results': [], 'next': None})
     return Response(status=status.HTTP_404_NOT_FOUND)
 
 
@@ -106,10 +147,10 @@ def get_posts_by_tag_popular(request, tag):  # 'posts/tag-popular/<str:tag>'
         # get posts from public account or if current account follows that account
         profile = request.user.profile
         posts = Post.objects.filter(hash_tags__body=tag).filter(Q(profile__following__follower=profile) | Q(
-            profile__type='PU')).order_by('-likes_count')[:10]
+            profile__account_type='PU')).order_by('-likes_count')[:10]
     else:
         posts = Post.objects.filter(hash_tags__body=tag).filter(
-            profile__type='PU').order_by('-likes_count')[:10]
+            profile__account_type='PU').order_by('-likes_count')[:10]
     serializer = PostLightSerializer(posts, many=True)
     return Response(serializer.data)
 
@@ -122,10 +163,10 @@ def get_posts_by_tag_recent(request, tag):  # 'posts/tag-recent/<str:tag>/'
         profile = request.user.profile
         # get posts from public account or if current account follows that account
         posts = Post.objects.filter(hash_tags__body=tag).filter(Q(profile__following__follower=profile) | Q(
-            profile__type='PU'))
+            profile__account_type='PU'))
     else:
         posts = Post.objects.filter(hash_tags__body=tag).filter(
-            profile__type='PU')
+            profile__account_type='PU')
     result_page = paginator.paginate_queryset(posts, request)
     serializer = PostLightSerializer(result_page, many=True)
     return paginator.get_paginated_response(serializer.data)
@@ -140,9 +181,10 @@ def get_suggest_posts(request):
         profile = request.user.profile
         # get posts from public account or if current account follows that account
         posts = Post.objects.exclude(profile=profile).filter(
-            Q(profile__type='PU') | Q(profile__following__follower=profile))
+            Q(profile__account_type='PU') | Q(profile__following__follower=profile)).annotate(likes_count=Count('postlike'))
     else:
-        posts = Post.objects.filter(profile__type='PU')
+        posts = Post.objects.filter(profile__account_type='PU').annotate(
+            likes_count=Count('postlike'))
     result_page = paginator.paginate_queryset(posts, request)
     serializer = PostLightSerializer(result_page, many=True)
     return paginator.get_paginated_response(serializer.data)
@@ -200,7 +242,10 @@ def save_unsave_post(request):  # 'posts/save-unsave/'
 def get_saved_post(request):  # 'posts/saved/'
     paginator = pagination.CursorPagination()
     paginator.page_size = settings.POST_SAVED_PAGE_SIZE
-    saved_posts = Post.objects.filter(savedpost__profile=request.user.profile)
+    paginator.ordering = '-saved_date'
+    saved_posts = Post.objects.filter(
+        savedpost__profile=request.user.profile).annotate(
+            saved_date=F('savedpost__created'))
     result_page = paginator.paginate_queryset(saved_posts, request)
     serializer = PostLightSerializer(result_page, many=True)
     return paginator.get_paginated_response(serializer.data)
