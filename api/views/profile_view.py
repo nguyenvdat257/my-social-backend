@@ -1,28 +1,38 @@
 from .my_imports import *
 
 
-@api_view(['PUT'])
+@api_view(['GET', 'PUT'])
 @permission_classes([IsAuthenticated])
-def update_profile(request):
-    current_user = request.user
-    data = request.data
-    profile = Profile.objects.get(user__username=current_user.username)
-    serializer = ProfileSerializer(instance=profile, data=data, context={
-                                   'username': current_user.username, 'new_username': data['username']})
-
-    if serializer.is_valid():
-        serializer.save()
-        return Response({'message': 'Profile was updated!', 'data': serializer.data})
-    else:
-        return Response('Error on update profile', status=status.HTTP_400_BAD_REQUEST)
+def my_profile(request):
+    if request.method == 'GET':
+        current_user = request.user
+        data = request.data
+        profile = Profile.objects.get(user__username=current_user.username)
+        serializer = ProfileSerializer(profile)
+        return Response(serializer.data)
+    if request.method == 'PUT':
+        current_user = request.user
+        data = request.data
+        profile = Profile.objects.get(user__username=current_user.username)
+        context = {'username': current_user.username}
+        if 'username' in data:
+            context['new_username'] = data['username']
+        serializer = ProfileEditSerializer(
+            instance=profile, data=data, context=context, partial=True)
+        is_valid, errors = serializer.is_valid()
+        if is_valid:
+            serializer.save()
+            return Response(serializer.data)
+        else:
+            return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
 def get_profile(request, username):  # get profile of username
     profile = get_object_or_404(Profile, user__username=username)
     fields = ('username', 'name', 'bio', 'avatar',
-            'num_posts', 'num_followings', 'num_followers', 'is_follow')
-    serializer = ProfileSerializer(profile, fields=fields)
+              'num_posts', 'num_followings', 'num_followers', 'is_follow', 'is_has_story', 'is_story_seen')
+    serializer = ProfileSerializer(profile, fields=fields, context={'profile': request.user.profile})
     return Response(serializer.data)
 
 
@@ -53,5 +63,6 @@ def get_search_profile(request, keyword):
     else:
         profiles = Profile.objects.filter(
             Q(user__username__contains=keyword) | Q(name__contains=keyword))[:20]
-    serializer = ProfileLightSerializer(profiles, many=True)
+    
+    serializer = ProfileLightSerializer(profiles, remove_fields=['is_follow'], context={'profile': request.user.profile}, many=True)
     return Response(serializer.data)

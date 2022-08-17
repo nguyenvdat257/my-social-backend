@@ -13,7 +13,7 @@ class Profile(models.Model):
     avatar = VersatileImageField(upload_to='images', blank=True, null=True)
     bio = models.TextField(blank=True, null=True)
     website = models.URLField(blank=True, null=True)
-    email = models.EmailField(blank=True, null=True)
+    email = models.EmailField(blank=True, null=True, unique=True)
     phone_number = models.CharField(max_length=100, blank=True, null=True)
     GENDER_CHOICES = (
         ('M', 'Male'),
@@ -27,7 +27,9 @@ class Profile(models.Model):
         ('PU', 'Public'),
         ('PR', 'Private')
     )
-    type = models.CharField(max_length=2, choices=PROFILE_TYPES, default='PU')
+    account_type = models.CharField(
+        max_length=2, choices=PROFILE_TYPES, default='PU')
+    show_activity = models.BooleanField(default=True)
     online = models.IntegerField(default=0)
     last_active = models.DateTimeField(null=True, blank=True)
     last_view_page_time = models.DateTimeField(default=timezone.now)
@@ -51,15 +53,13 @@ class Post(models.Model):
         blank=True, null=True, upload_to='images')
     code = models.CharField(max_length=11, default='', unique=True)
     hash_tags = models.ManyToManyField(HashTag)
-    likes_count = models.IntegerField(default=0)
-    comments_count = models.IntegerField(default=0)
     created = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         indexes = [models.Index(fields=['code'])]
 
     def __str__(self):
-        return str(self.profile) + ' post ' + str(self.id)
+        return str(self.profile) + ' post ' + str(self.code)
 
 
 class PostSeen(models.Model):
@@ -74,6 +74,9 @@ class PostImage(models.Model):
     image = models.ImageField(upload_to='images')
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     order = models.IntegerField(default=0)
+
+    class Meta:
+        ordering = ['order']
 
     def __str__(self):
         return 'post: ' + str(self.post) + ' image: ' + str(self.image.url[-15:])
@@ -101,10 +104,9 @@ class SavedPost(models.Model):
 class Comment(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
     reply_to = models.ForeignKey(
-        'self', blank=True, null=True, on_delete=models.RESTRICT)
+        'self', blank=True, null=True, related_name='reply_comments', on_delete=models.SET_NULL)
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     body = models.TextField()
-    likes_count = models.IntegerField(default=0)
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -127,13 +129,14 @@ class RecentSearch(models.Model):
         Profile, blank=True, null=True, related_name='search_profile', on_delete=models.CASCADE)
     search_hashtag = models.ForeignKey(
         HashTag, blank=True, null=True, on_delete=models.CASCADE)
+    modified = models.DateTimeField(auto_now=True)
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         if self.search_profile:
-            return str(self.current_profile) + ' search ' + str(self.search_profile)[:15]
+            return str(self.current_profile) + ' search ' + str(self.search_profile)[:15] + ' id ' + str(self.id)
         else:
-            return str(self.current_profile) + ' search ' + str(self.search_hashtag)[:15]
+            return str(self.current_profile) + ' search ' + str(self.search_hashtag)[:15] + ' id ' + str(self.id)
 
 
 class Notification(models.Model):
@@ -173,17 +176,6 @@ class Follow(models.Model):
     def __str__(self):
         return str(self.follower) + " follows " + str(self.following)
 
-# class FollowHashTag(models.Model):
-#     follower = models.ForeignKey(
-#         Profile, related_name='follower', on_delete=models.CASCADE)
-#     hashtag = models.ForeignKey(HashTag, related_name='hashtag', on_delete=models.CASCADE)
-
-#     class Meta:
-#         unique_together = ('follower', 'hashtag',)
-
-#     def __str__(self):
-#         return str(self.follower) + " follows " + str(self.hashtag)
-
 
 class Story(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
@@ -221,8 +213,10 @@ class StoryLike(models.Model):
 
 
 class StoryView(models.Model):
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    story = models.ForeignKey(Story, on_delete=models.CASCADE)
+    profile = models.ForeignKey(
+        Profile, related_name='profile_view', on_delete=models.CASCADE)
+    story = models.ForeignKey(
+        Story, related_name='story_view', on_delete=models.CASCADE)
 
     def __str__(self):
         return str(self.profile) + ' views ' + str(self.story.id)
@@ -238,20 +232,31 @@ class ChatRoom(models.Model):
 
 class Chat(models.Model):
     profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    chatroom = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
+    chatroom = models.ForeignKey(ChatRoom, related_name='chat_set', on_delete=models.CASCADE)
     reply_to = models.ForeignKey(
         'self', blank=True, null=True, on_delete=models.RESTRICT)
-    body = models.TextField()
+    body = models.TextField(blank=True, null=True)
+    CHAT_TYPES = (
+        ('N', 'normal'),
+        ('S', 'share_post'),
+        ('R', 'reply_story')
+    )
+    type = models.CharField(
+        max_length=2, choices=CHAT_TYPES, default='N')
+    share_post_img = models.TextField(blank=True, null=True)
+    share_post_code = models.CharField(max_length=11, blank=True, null=True)
+    reply_story_img = models.TextField(blank=True, null=True)
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.body[:15]
+        return self.body[:15] if self.body is not None else ''
 
 
 class ChatRoomProfile(models.Model):
-    profile = models.ForeignKey(Profile, on_delete=models.CASCADE)
-    chatroom = models.ForeignKey(ChatRoom, on_delete=models.CASCADE)
-    last_seen = models.ForeignKey(Chat, blank=True, null=True, on_delete=models.RESTRICT)
+    profile = models.ForeignKey(Profile, related_name='profile_chatroom', on_delete=models.CASCADE)
+    chatroom = models.ForeignKey(ChatRoom, related_name='chatroom_profile', on_delete=models.CASCADE)
+    last_seen = models.ForeignKey(
+        Chat, blank=True, null=True, on_delete=models.RESTRICT)
     name = models.CharField(max_length=200, blank=True, null=True)
     is_mute = models.BooleanField(default=False)
     is_admin = models.BooleanField(default=False)

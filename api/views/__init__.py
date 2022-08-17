@@ -1,5 +1,6 @@
 from .profile_view import *
 from .post_view import *
+from .search_view import *
 from .comment_view import *
 from .story_view import *
 from .follow_view import *

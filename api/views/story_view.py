@@ -1,43 +1,56 @@
 from .my_imports import *
+from asgiref.sync import async_to_sync
+import channels.layers
 
 
-@api_view(['POST', 'GET'])
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def create_story(request):
+    profile = request.user.profile
+    data = {'profile': profile.id,
+            'body': request.data['body'], 'video': request.data.get('video'), 'music': request.data.get('music')}
+    serializer = StorySerializer(data=data, partial=True, context={
+                                 'images': request.data.getlist('images'), 'current_profile': profile})
+    if serializer.is_valid():
+        serializer.save()
+        return Response(serializer.data)
+    return Response('Error on create post', status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['GET'])
 @permission_classes([IsAuthenticatedOrReadOnly])
-def create_get_story(request):
-    if request.method == 'POST':
-        profile = request.user.profile
-        data = {'profile': profile.id,
-                'body': request.data['body'], 'video': request.data.get('video'), 'music': request.data.get('music')}
-        serializer = StorySerializer(data=data, partial=True, context={
-                                     'images': request.data.getlist('images')})
-        if serializer.is_valid():
-            serializer.save()
-            return Response(serializer.data)
-        return Response('Error on create post', status=status.HTTP_400_BAD_REQUEST)
-    if request.method == 'GET':
-        profile = request.user.profile
-        following_stories = Story.objects.filter(profile__following__follower=profile).filter(
-            created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).order_by('-created')
-        self_stories = StorySerializer(profile.story_set.all(), many=True).data
-        following_stories = StorySerializer(following_stories, many=True).data
-        response_data = {}
-        for story in self_stories + following_stories:
-            if not story['profile'] in response_data:
-                response_data[story['profile']] = [story]
-            else:
-                response_data[story['profile']].append(story)
-        return Response(list(response_data.values()))
+def get_stories_current_user(request):
+    profile = request.user.profile
+    following_stories = Story.objects.filter(profile__following__follower=profile).filter(
+        created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).order_by('-created')
+    self_stories = profile.story_set.filter(created__gt=timezone.now(
+    ) - timezone.timedelta(days=settings.STORY_VALID_DAY))
+    self_stories = StorySerializer(self_stories, many=True, context={
+                                   'current_profile': profile}).data
+    following_stories = StorySerializer(following_stories, many=True, remove_fields=['view_count'], context={
+                                        'current_profile': profile}).data
+    response_following = {}
+    for story in following_stories:
+        if not story['profile_info']['username'] in response_following:
+            response_following[story['profile_info']['username']] = [story]
+        else:
+            response_following[story['profile_info']['username']].append(story)
+    return Response({'self_stories': [[profile.user.username, self_stories]], 'following_stories': response_following.items()})
 
 
 @api_view(['DELETE'])
 @permission_classes([IsAuthenticated])
 def delete_story(request, pk):
     story = get_object_or_404(Story, pk=pk)
-    if story.profile == request.user.profile:
-        story.delete()
-        return Response('Story was deleted!')
-    else:
-        return Response('Cannot delete story', status=status.HTTP_400_BAD_REQUEST)
+    if request.method == 'DELETE':
+        if story.profile == request.user.profile:
+            story.delete()
+            return Response('Story was deleted!')
+        else:
+            return Response('Cannot delete story', status=status.HTTP_400_BAD_REQUEST)
+    if request.method == 'GET':
+        serializer = StorySerializer(story)
+        return Response(serializer.data)
 
 
 @api_view(['PUT'])
@@ -45,7 +58,7 @@ def delete_story(request, pk):
 def like_unlike_story(request):
     story = get_object_or_404(Story, pk=request.data['id'])
     if story.profile == request.user.profile:
-        return Response('Cannot like story', status = status.HTTP_400_BAD_REQUEST)
+        return Response('Cannot like story', status=status.HTTP_400_BAD_REQUEST)
     story_like = StoryLike.objects.filter(
         profile=request.user.profile, story=story)
     if story_like:
@@ -64,34 +77,65 @@ def like_unlike_story(request):
 
 @api_view(['PUT'])
 @permission_classes([IsAuthenticated])
-def view_story(request): # a user views a story
+def view_story(request):  # a user views a story
     story = get_object_or_404(Story, pk=request.data['id'])
     story_view = StoryView.objects.filter(
         profile=request.user.profile, story=story)
-    if not story_view : # a different user who has not viewed
-        if not request.user.profile == story.profile:
-            StoryView.objects.create(profile=request.user.profile, story=story)
-            return Response('Successfully view story')
-    return Response('Cannot view story', status = status.HTTP_400_BAD_REQUEST)
+    if not story_view:  # a different user who has not viewed
+        StoryView.objects.create(profile=request.user.profile, story=story)
+        return Response('Successfully view story')
+    return Response('Cannot view story', status=status.HTTP_400_BAD_REQUEST)
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
-def get_story_activity(request, pk): # 'stories/<int:pk>/activity/'
+def get_story_activity(request, pk):  # 'stories/<int:pk>/activity/'
     story = get_object_or_404(Story, pk=pk)
     paginator = pagination.CursorPagination()
     paginator.page_size = settings.STORY_ACTIVITY_PAGE_SIZE
     paginator.ordering = 'name'
     if story.profile == request.user.profile:
-        view_profiles = story.view_profiles.all()
-        like_profiles = set(story.like_profiles.all())
+        view_profiles = story.view_profiles.exclude(pk=request.user.profile.pk)
+        like_profile_ids = story.like_profiles.values_list('id', flat=True)
         response_data = []
         result_set = paginator.paginate_queryset(view_profiles, request)
-        serializer = ProfileLightSerializer(result_set, many=True)
-        for profile, profile_info in zip(view_profiles, serializer.data):
-            is_like = profile in like_profiles
-            response_data.append(
-                {'profile_info': profile_info, 'like': is_like})
-        return paginator.get_paginated_response(response_data)
+        serializer = ProfileLightSerializer(result_set, context={'profile': request.user.profile}, many=True)
+        for profile_info in  serializer.data:
+            if profile_info['id'] in like_profile_ids:
+                profile_info['is_like_story'] = True
+            else:
+                profile_info['is_like_story'] = False
+            
+        return paginator.get_paginated_response(serializer.data)
     else:
         return Response('Cannot get story activity', status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def reply_story(request):
+    if request.method == 'POST':
+        current_profile = request.user.profile
+        usernames = request.data['usernames']
+        message = request.data['message']
+        reply_story_img = request.data['reply_story_img']
+
+        profiles = Profile.objects.filter(user__username__in=usernames)
+        layer = channels.layers.get_channel_layer()
+        for profile in profiles:
+            serializer = ChatRoomSerializer(data={}, partial=True, context={
+                                            'profiles': [current_profile, profile], 'current_profile': current_profile})
+            if serializer.is_valid():
+                serializer.save()
+                chatroom = serializer.data
+                chat = Chat.objects.create(
+                    profile=current_profile, chatroom_id=chatroom['id'], body=message,
+                    type='R', reply_story_img=reply_story_img)
+                chat_data = ChatSerializer(chat).data
+                send_obj = {'type': 'message', 'chat': chat_data}
+                room_group_name = 'chatroom_%s' % chatroom['id']
+                async_to_sync(layer.group_send)(
+                    room_group_name, send_obj
+                )
+            else:
+                return Response('Cannot reply story', status=status.HTTP_400_BAD_REQUEST)
+        return Response('Successfully reply story')

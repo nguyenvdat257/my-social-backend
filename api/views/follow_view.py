@@ -30,7 +30,7 @@ def get_follower(request, username):
     followers = Profile.objects.filter(follower__following=profile)
     result_page = paginator.paginate_queryset(followers, request)
     serializer = ProfileLightSerializer(
-        result_page, many=True, context={'profile': profile})
+        result_page, many=True, context={'profile': request.user.profile})
     return paginator.get_paginated_response(serializer.data)
 
 
@@ -42,5 +42,5 @@ def get_following(request, username):
     followings = Profile.objects.filter(following__follower=profile)
     result_page = paginator.paginate_queryset(followings, request)
     serializer = ProfileLightSerializer(
-        result_page, many=True, context={'profile': profile})
+        result_page, many=True, context={'profile': request.user.profile})
     return paginator.get_paginated_response(serializer.data)

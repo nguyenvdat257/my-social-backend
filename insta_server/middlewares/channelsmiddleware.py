@@ -30,15 +30,12 @@ class JwtAuthMiddleware(BaseMiddleware):
     async def __call__(self, scope, receive, send):
        # Close old database connections to prevent usage of timed out connections
         close_old_connections()
-        headers = dict(scope['headers'])
-        if b'authorization' in headers:
-            try:
-                token_name, token_key = headers[b'authorization'].decode().split()
-                if token_name == 'Bearer':
-                    decoded_data = jwt_decode(token_key, settings.SECRET_KEY, algorithms=["HS256"])
-                    scope["user"] = await get_user(validated_token=decoded_data)
-            except:
-                scope['user'] = AnonymousUser() 
+        try:
+            token_name, token_key = scope['query_string'].decode().split('=')
+            decoded_data = jwt_decode(token_key, settings.SECRET_KEY, algorithms=["HS256"])
+            scope["user"] = await get_user(validated_token=decoded_data)
+        except:
+            scope['user'] = AnonymousUser() 
         return await super().__call__(scope, receive, send)
 
 

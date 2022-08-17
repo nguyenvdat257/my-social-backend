@@ -57,6 +57,7 @@ CHANNEL_LAYERS = {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
             "hosts": [os.environ.get('REDIS_URL', 'redis://localhost:6379')],
+            # "hosts": [('127.0.0.1', 6379)],
         },
     }
 }
@@ -203,11 +204,11 @@ CORS_ALLOW_ALL_ORIGINS = True
 POST_USER_PAGE_SIZE = 10 
 POST_TAG_PAGE_SIZE = 10
 POST_SUGGEST_PAGE_SIZE = 10
-POST_LIKE_PROFILE_PAGE_SIZE = 15
+POST_LIKE_PROFILE_PAGE_SIZE = 10
 POST_SAVED_PAGE_SIZE = 15
 
 STORY_ACTIVITY_PAGE_SIZE = 10
-STORY_VALID_DAY = 1
+STORY_VALID_DAY = 100
 
 COMMENT_PAGE_SIZE = 10
 COMMENT_LIKE_PAGE_SIZE = 10
@@ -215,9 +216,11 @@ COMMENT_LIKE_PAGE_SIZE = 10
 FOLLOW_FOLLOWER_SIZE = 10
 CHAT_LIST_SIZE = 15
 
+NOTIFICATION_SIZE = 10
+
 CSRF_TRUSTED_ORIGINS = [
     'https://social-net-216.herokuapp.com'
 ]
 
 import django_heroku
-django_heroku.settings(locals())
+django_heroku.settings(locals()) 
