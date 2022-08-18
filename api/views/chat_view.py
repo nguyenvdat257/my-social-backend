@@ -9,14 +9,10 @@ import channels.layers
 @permission_classes([IsAuthenticated])
 def get_create_chat_room(request):
     if request.method == 'GET':
-        # chatrooms = request.user.profile.chatroom_set.annotate(latest=Max('chat_set__created')).order_by('-latest')
-        try: 
-            chatrooms = ChatRoom.objects.filter(chatroom_profile__profile=request.user.profile)
-            # serializer = ChatRoomSerializer(chatrooms, many=True, context={
-            #                                 'current_profile': request.user.profile})
-            return Response('success')
-        except Exception as e:
-            return Response(str(e))
+        chatrooms = request.user.profile.chatroom_set.annotate(latest=Max('chat_set__created')).order_by('-latest')
+        serializer = ChatRoomSerializer(chatrooms, many=True, context={
+                                        'current_profile': request.user.profile})
+        return Response(serializer.data)
 
     if request.method == 'POST':
         current_profile = request.user.profile

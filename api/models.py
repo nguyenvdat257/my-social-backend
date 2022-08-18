@@ -31,7 +31,7 @@ class Profile(models.Model):
         max_length=2, choices=PROFILE_TYPES, default='PU')
     show_activity = models.BooleanField(default=True)
     online = models.IntegerField(default=0)
-    last_active = models.DateTimeField(null=True, blank=True)
+    last_active = models.DateTimeField(auto_now_add=True)
     last_view_page_time = models.DateTimeField(default=timezone.now)
 
     def __str__(self):
