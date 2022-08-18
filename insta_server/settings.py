@@ -219,7 +219,8 @@ CHAT_LIST_SIZE = 15
 NOTIFICATION_SIZE = 10
 
 CSRF_TRUSTED_ORIGINS = [
-    'https://social-net-216.herokuapp.com'
+    'https://social-net-216.herokuapp.com',
+    'https://social-net-188.herokuapp.com'
 ]
 
 import django_heroku
