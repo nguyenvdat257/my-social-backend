@@ -12,7 +12,7 @@ def get_create_chat_room(request):
         # chatrooms = request.user.profile.chatroom_set.annotate(latest=Max('chat_set__created')).order_by('-latest')
         try: 
             chatrooms = ChatRoom.objects.filter(chatroom_profile__profile=request.user.profile).annotate(
-                latest=Max('chat_set__created')).order_by('-latest')
+                latest=Max('chat_set__created'))
             serializer = ChatRoomSerializer(chatrooms, many=True, context={
                                             'current_profile': request.user.profile})
             return Response(serializer.data)
