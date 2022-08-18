@@ -17,7 +17,7 @@ def get_create_chat_room(request):
                                             'current_profile': request.user.profile})
             return Response(serializer.data)
         except Exception as e:
-            print(e)
+            return Response(str(e))
 
     if request.method == 'POST':
         current_profile = request.user.profile
