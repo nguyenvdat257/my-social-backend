@@ -227,3 +227,4 @@ CSRF_TRUSTED_ORIGINS = [
 
 import django_heroku
 django_heroku.settings(locals()) 
+DATABASES['default']['CONN_MAX_AGE'] = 0
