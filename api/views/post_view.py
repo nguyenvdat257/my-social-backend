@@ -62,8 +62,8 @@ def get_posts_by_code_and_recent(request, code):
                 profile__account_type='PU').order_by('-created')[:6]
         postSerializer = PostSerializer(
             posts_by_code, many=True, context={'current_profile': profile})
-        postLightSerializer = PostLightSerializer(posts_recent, many=True)
-        return Response(postSerializer.data + postLightSerializer.data)
+        postSerializer = PostSerializer(posts_recent, many=True, context={'current_profile': profile})
+        return Response(postSerializer.data + postSerializer.data)
     else:
         return Response('Error on get post', status=status.HTTP_400_BAD_REQUEST)
 
@@ -78,19 +78,18 @@ def get_posts(request, username):  # 'posts/username/<str:username>/'
         posts = Post.objects.filter(
             profile__user__username=username).order_by('-created')
         result_page = paginator.paginate_queryset(posts, request)
-        serializer = PostLightSerializer(result_page, many=True)
+        serializer = PostSerializer(result_page, many=True, context={'current_profile': request.user.profile})
         return paginator.get_paginated_response(serializer.data)
     else:
         if request.user.is_authenticated:
-            current_profile = get_object_or_404(
-                Profile, user__username=request.user.username)
+            current_profile = request.user.profile
             is_follow_request_user = Follow.objects.filter(
                 Q(follower=current_profile) & Q(following=request_profile)).exists()
             is_same_user = username == request.user.username
             if is_follow_request_user or is_same_user:
                 result_page = paginator.paginate_queryset(
                     request_profile.post_set.order_by('-created'), request)
-                serializer = PostLightSerializer(result_page, many=True)
+                serializer = PostSerializer(result_page, many=True, context={'current_profile': current_profile})
                 return paginator.get_paginated_response(serializer.data)
             else:
                 return Response({'results': [], 'next': None})
@@ -151,7 +150,7 @@ def get_posts_by_tag_popular(request, tag):  # 'posts/tag-popular/<str:tag>'
     else:
         posts = Post.objects.filter(hash_tags__body=tag).filter(
             profile__account_type='PU').order_by('-likes_count')[:10]
-    serializer = PostLightSerializer(posts, many=True)
+    serializer = PostSerializer(posts, many=True)
     return Response(serializer.data)
 
 
@@ -168,7 +167,7 @@ def get_posts_by_tag_recent(request, tag):  # 'posts/tag-recent/<str:tag>/'
         posts = Post.objects.filter(hash_tags__body=tag).filter(
             profile__account_type='PU')
     result_page = paginator.paginate_queryset(posts, request)
-    serializer = PostLightSerializer(result_page, many=True)
+    serializer = PostSerializer(result_page, many=True)
     return paginator.get_paginated_response(serializer.data)
 
 
@@ -177,8 +176,8 @@ def get_suggest_posts(request):
     paginator = pagination.CursorPagination()
     paginator.page_size = settings.POST_SUGGEST_PAGE_SIZE
     paginator.ordering = '-likes_count'
+    profile = request.user.profile
     if request.user.is_authenticated:
-        profile = request.user.profile
         # get posts from public account or if current account follows that account
         posts = Post.objects.exclude(profile=profile).filter(
             Q(profile__account_type='PU') | Q(profile__following__follower=profile)).annotate(likes_count=Count('postlike'))
@@ -186,7 +185,7 @@ def get_suggest_posts(request):
         posts = Post.objects.filter(profile__account_type='PU').annotate(
             likes_count=Count('postlike'))
     result_page = paginator.paginate_queryset(posts, request)
-    serializer = PostLightSerializer(result_page, many=True)
+    serializer = PostSerializer(result_page, many=True, context={'current_profile': profile})
     return paginator.get_paginated_response(serializer.data)
 
 
@@ -247,5 +246,5 @@ def get_saved_post(request):  # 'posts/saved/'
         savedpost__profile=request.user.profile).annotate(
             saved_date=F('savedpost__created'))
     result_page = paginator.paginate_queryset(saved_posts, request)
-    serializer = PostLightSerializer(result_page, many=True)
+    serializer = PostSerializer(result_page, many=True, context={'current_profile': request.user.profile})
     return paginator.get_paginated_response(serializer.data)
