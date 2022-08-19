@@ -10,6 +10,7 @@ https://docs.djangoproject.com/en/4.0/howto/deployment/asgi/
 import os
 import django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'insta_server.settings')
+os.environ['ASGI_THREADS']="4"
 django.setup()
 
 from django.core.asgi import get_asgi_application
