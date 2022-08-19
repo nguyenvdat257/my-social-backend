@@ -30,7 +30,7 @@ class UserConsumer(AsyncWebsocketConsumer):
         # profile.save()
         # assert prev_online_count + 1 == profile.online
         await self.update_user_incr(user)
-        profile = await sync_to_async(Profile.objects.get)(pk=user.profile.pk)
+        profile = await database_sync_to_async(Profile.objects.get)(pk=user.profile.pk)
 
         if profile.online == 1:  # when there is first device online notify users
             chat_partners = await self.get_chat_partners(profile)
@@ -51,7 +51,7 @@ class UserConsumer(AsyncWebsocketConsumer):
         # Notify all chat partner offline status
         user = self.scope['user']
         await self.update_user_decr(user)
-        profile = await sync_to_async(Profile.objects.get)(pk=user.profile.pk)
+        profile = await database_sync_to_async(Profile.objects.get)(pk=user.profile.pk)
         if profile.online == 0:  # when there is no device online notify other users
             chat_partners = await self.get_chat_partners(profile)
             for partner in chat_partners:
@@ -72,21 +72,21 @@ class UserConsumer(AsyncWebsocketConsumer):
             self.channel_name
         )
 
-    @sync_to_async
+    @database_sync_to_async
     def update_user_incr(self, user):
         return Profile.objects.filter(pk=user.profile.pk).update(online=F('online') + 1)
 
-    @sync_to_async
+    @database_sync_to_async
     def update_user_decr(self, user):
         return Profile.objects.filter(pk=user.profile.pk).update(online=F('online') - 1)
 
-    @sync_to_async
+    @database_sync_to_async
     def get_chat_partners(self, profile):
         chat_partners = set([profile for chat_room in profile.chatroom_set.prefetch_related(
             'profiles') for profile in chat_room.profiles.all()])
         return chat_partners
 
-    @sync_to_async
+    @database_sync_to_async
     def get_username(self, profile):
         return profile.user.username
 

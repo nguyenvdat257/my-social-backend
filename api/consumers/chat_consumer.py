@@ -2,6 +2,7 @@ import json
 import profile
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
+from channels.db import database_sync_to_async
 from asgiref.sync import async_to_sync, sync_to_async
 from django.db.models import signals
 from django.dispatch import receiver
@@ -12,22 +13,22 @@ from ..models import ChatRoom, Chat, ChatReaction, ChatRoomProfile, Profile
 
 
 class ChatConsumer(AsyncWebsocketConsumer):
-    @sync_to_async
+    @database_sync_to_async
     def get_data(self, chatroom):
         ids = self.scope['user'].profile, [
             profile for profile in chatroom.profiles.all()]
         return ids
 
-    @sync_to_async
+    @database_sync_to_async
     def get_chatroom_ids(self, profile):
         ids = [chatroom.id for chatroom in profile.chatroom_set.all()]
         return ids
 
-    @sync_to_async
+    @database_sync_to_async
     def get_profile(self, user):
         return user.profile
 
-    @sync_to_async
+    @database_sync_to_async
     def serialize_chat(self, chat):
         return ChatSerializer(chat).data
 
@@ -69,20 +70,20 @@ class ChatConsumer(AsyncWebsocketConsumer):
         username = text_data_json['username']
         type = text_data_json['type']
 
-        sender_profile = await sync_to_async(Profile.objects.get)(user__username=username)
+        sender_profile = await database_sync_to_async(Profile.objects.get)(user__username=username)
 
         send_obj = {'type': type}
         if type == 'message':
             message = text_data_json['message']
             reply_to = text_data_json.get('reply_to')
-            chat = await sync_to_async(Chat.objects.create)(
+            chat = await database_sync_to_async(Chat.objects.create)(
                 profile=sender_profile, chatroom_id=chatroom_id, body=message, reply_to=reply_to)
             chat_data = await self.serialize_chat(chat)
             send_obj.update({'chat': chat_data})
         elif type == 'reaction':
             reply_to = text_data_json['reply_to']
             reaction_type = text_data_json['reaction_type']
-            await sync_to_async(ChatReaction.objects.create)(profile=sender_profile, reply_to_id=reply_to, type=reaction_type)
+            await database_sync_to_async(ChatReaction.objects.create)(profile=sender_profile, reply_to_id=reply_to, type=reaction_type)
             send_obj.update(
                 {'reaction_type': reaction_type, 'reply_to': reply_to})
         elif type == 'seen':
@@ -107,7 +108,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
             room_group_name, send_obj
         )
 
-    @sync_to_async
+    @database_sync_to_async
     def update_last_seen(self, profile, chatroom_id, last_seen_id):
         ChatRoomProfile.objects.filter(
             profile=profile, chatroom_id=chatroom_id).update(last_seen_id=last_seen_id)
