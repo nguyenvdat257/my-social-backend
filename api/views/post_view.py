@@ -104,7 +104,7 @@ def get_posts_current_user(request):  # 'posts/current-user/'
     paginator = pagination.CursorPagination()
     paginator.page_size = settings.POST_USER_PAGE_SIZE
     posts = Post.objects.filter(Q(profile__following__follower=profile) | Q(
-        profile=profile))
+        profile=profile)).distinct()
     result_page = paginator.paginate_queryset(posts, request)
     serializer = PostSerializer(result_page, many=True, context={
                                 'current_profile': profile})
