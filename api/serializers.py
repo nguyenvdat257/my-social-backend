@@ -14,6 +14,7 @@ from django.conf import settings
 from versatileimagefield.serializers import VersatileImageFieldSerializer
 from django.core.exceptions import ValidationError
 from django.db.models import Count
+from django.db.models import Q
 
 
 class DynamicFieldsModelSerializer(serializers.ModelSerializer):
@@ -99,14 +100,14 @@ class ProfileSerializer(DynamicFieldsModelSerializer):
     def get_is_story_seen(self, obj):
         if 'profile' not in self.context:
             return False
-        return StoryView.objects.filter(profile=self.context['profile']).filter(
-            story__profile=obj).filter(story__created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).exists()
+        return StoryView.objects.filter(Q(profile=self.context['profile']) & Q(
+            story__profile=obj) & Q(story__created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY))).exists()
 
     def get_is_has_story(self, obj):
         if 'profile' not in self.context:
             return False
-        return Story.objects.filter(profile__following__follower=self.context['profile']).filter(profile=obj).filter(
-            created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).exists()
+        return Story.objects.filter(Q(profile__following__follower=self.context['profile']) & Q(profile=obj) & Q(
+            created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY))).exists()
 
     class Meta:
         model = Profile
@@ -174,14 +175,14 @@ class ProfileLightSerializer(DynamicFieldsModelSerializer):
     def get_is_story_seen(self, obj):
         if 'profile' not in self.context:
             return False
-        return StoryView.objects.filter(profile=self.context['profile']).filter(
-            story__profile=obj).filter(story__created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).exists()
+        return StoryView.objects.filter(Q(profile=self.context['profile']) & Q(
+            story__profile=obj) & Q(story__created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY))).exists()
 
     def get_is_has_story(self, obj):
         if 'profile' not in self.context:
             return False
-        return Story.objects.filter(profile__following__follower=self.context['profile']).filter(profile=obj).filter(
-            created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY)).exists()
+        return Story.objects.filter(Q(profile__following__follower=self.context['profile']) & Q(profile=obj) & Q(
+            created__gt=timezone.now() - timezone.timedelta(days=settings.STORY_VALID_DAY))).exists()
 
     class Meta:
         model = Profile
