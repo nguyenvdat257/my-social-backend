@@ -71,7 +71,7 @@ class PostSeen(models.Model):
 
 
 class PostImage(models.Model):
-    image = models.ImageField(upload_to='images')
+    image = VersatileImageField(upload_to='images')
     post = models.ForeignKey(Post, on_delete=models.CASCADE)
     order = models.IntegerField(default=0)
 
@@ -197,7 +197,7 @@ class Story(models.Model):
 
 
 class StoryImage(models.Model):
-    image = models.ImageField(upload_to='images')
+    image = VersatileImageField(upload_to='images')
     story = models.ForeignKey(Story, on_delete=models.CASCADE)
 
     def __str__(self):

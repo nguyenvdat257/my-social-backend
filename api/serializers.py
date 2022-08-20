@@ -221,6 +221,13 @@ class RecentSearchSerializer(ModelSerializer):
 
 
 class PostImageSerializer(ModelSerializer):
+    image = VersatileImageFieldSerializer(
+        sizes=[
+            ("medium", "crop__750x750"),
+            ("small", "crop__200x200"),
+        ]
+    )
+
     class Meta:
         model = PostImage
         fields = '__all__'
@@ -367,6 +374,13 @@ class CommentSerializer(ModelSerializer):
 
 
 class StoryImageSerializer(ModelSerializer):
+    image = VersatileImageFieldSerializer(
+        sizes=[
+            ("medium", "crop__750x750"),
+            ("small", "crop__200x200"),
+        ]
+    )
+
     class Meta:
         model = StoryImage
         fields = '__all__'
