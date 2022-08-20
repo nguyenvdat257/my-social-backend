@@ -220,6 +220,8 @@ CHAT_LIST_SIZE = 15
 
 NOTIFICATION_SIZE = 10
 
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+
 CSRF_TRUSTED_ORIGINS = [
     'https://social-net-216.herokuapp.com',
     'https://social-net-188.herokuapp.com'
