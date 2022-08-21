@@ -39,19 +39,26 @@ def get_profile(request, username):  # get profile of username
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def get_suggest_profile(request):  # get suggested profile for current user
+    current_profile = request.user.profile
     followings = Profile.objects.filter(
-        following__follower=request.user.profile)
+        following__follower=current_profile)
     suggested_profiles = []
     for following in followings:
-        following_of_following = Profile.objects.filter(following__follower=following).exclude(
-            following__follower=request.user.profile).exclude(id=request.user.profile.id)
+        following_of_following = Profile.objects.filter(Q(following__follower=following) & ~Q(
+            following__follower=current_profile) & ~Q(id=current_profile.id))
         profile_serializer = ProfileLightSerializer(
             following_of_following, many=True)
         suggested_profile = profile_serializer.data[:3]
         for profile in suggested_profile:
             profile.update({'followed_by': following.user.username})
         suggested_profiles = suggested_profiles + suggested_profile
-    return Response(suggested_profiles[:20])
+    used_id = set()
+    filtered_profiles = []
+    for profile in suggested_profiles:
+        if not profile['id'] in used_id:
+            filtered_profiles.append(profile)
+            used_id.add(profile['id'])
+    return Response(filtered_profiles[:20])
 
 
 @api_view(['GET'])

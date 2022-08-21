@@ -148,12 +148,12 @@ def get_posts_by_tag_popular(request, tag):  # 'posts/tag-popular/<str:tag>'
     if request.user.is_authenticated:
         # get posts from public account or if current account follows that account
         profile = request.user.profile
-        posts = Post.objects.filter(hash_tags__body=tag).filter(Q(profile__following__follower=profile) | Q(
-            profile__account_type='PU')).order_by('-likes_count')[:10]
+        posts = Post.objects.filter(Q(hash_tags__body=tag) &(Q(profile__following__follower=profile) | Q(
+            profile__account_type='PU'))).annotate(likes_count=Count('postlike')).order_by('-likes_count')[:10]
     else:
         posts = Post.objects.filter(hash_tags__body=tag).filter(
-            profile__account_type='PU').order_by('-likes_count')[:10]
-    serializer = PostSerializer(posts, many=True)
+            profile__account_type='PU').annotate(likes_count=Count('postlike')).order_by('-likes_count')[:10]
+    serializer = PostSerializer(posts, many=True, context={'current_profile': profile})
     return Response(serializer.data)
 
 
@@ -164,11 +164,11 @@ def get_posts_by_tag_recent(request, tag):  # 'posts/tag-recent/<str:tag>/'
     if request.user.is_authenticated:
         profile = request.user.profile
         # get posts from public account or if current account follows that account
-        posts = Post.objects.filter(hash_tags__body=tag).filter(Q(profile__following__follower=profile) | Q(
-            profile__account_type='PU'))
+        posts = Post.objects.filter(Q(hash_tags__body=tag) & (Q(profile__following__follower=profile) | Q(
+            profile__account_type='PU')))
     else:
-        posts = Post.objects.filter(hash_tags__body=tag).filter(
-            profile__account_type='PU')
+        posts = Post.objects.filter(Q(hash_tags__body=tag) &Q(
+            profile__account_type='PU'))
     result_page = paginator.paginate_queryset(posts, request)
     serializer = PostSerializer(result_page, many=True)
     return paginator.get_paginated_response(serializer.data)
