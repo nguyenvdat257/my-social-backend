@@ -65,8 +65,9 @@ class UserConsumer(AsyncWebsocketConsumer):
                         'username': self.username
                     }
                 )
-            profile.last_active = timezone.now()
-            profile.save()
+            # profile.last_active = timezone.now()
+            # profile.save()
+            await self.update_last_active(profile)
         await self.channel_layer.group_discard(
             self.group_name,
             self.channel_name
@@ -90,6 +91,11 @@ class UserConsumer(AsyncWebsocketConsumer):
     def get_username(self, profile):
         return profile.user.username
 
+    @database_sync_to_async
+    def update_last_active(self, profile):
+        profile.last_active = timezone.now()
+        profile.save()
+
     async def status_online(self, event):
         await self.send(text_data=json.dumps({
             'type': event['type'],
@@ -101,7 +107,6 @@ class UserConsumer(AsyncWebsocketConsumer):
             'type': event['type'],
             'username': event['username']
         }))
-
 
     @staticmethod
     @receiver(signals.post_save, sender=Notification)
@@ -151,4 +156,3 @@ class UserConsumer(AsyncWebsocketConsumer):
         self.send(text_data=json.dumps({
             'type': type
         }))
-
