@@ -42,10 +42,11 @@ def get_suggest_profile(request):  # get suggested profile for current user
     current_profile = request.user.profile
     followings = Profile.objects.filter(
         following__follower=current_profile)
+    following_ids = [x.id for x in followings]
     suggested_profiles = []
     for following in followings:
         following_of_following = Profile.objects.filter(Q(following__follower=following) & ~Q(
-            following__follower=current_profile) & ~Q(id=current_profile.id))
+            id__in=following_ids) & ~Q(id=current_profile.id))
         profile_serializer = ProfileLightSerializer(
             following_of_following, many=True)
         suggested_profile = profile_serializer.data[:3]
